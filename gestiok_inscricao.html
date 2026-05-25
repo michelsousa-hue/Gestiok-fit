@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inscrição Online</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F3F4F6;min-height:100vh}
+.header{background:#534AB7;padding:20px;text-align:center;color:#fff}
+.header img{width:60px;height:60px;border-radius:50%;object-fit:cover;margin-bottom:8px;display:none}
+.header h1{font-size:20px;font-weight:700}
+.header p{font-size:13px;opacity:.85;margin-top:4px}
+.wrap{max-width:560px;margin:0 auto;padding:24px 16px 60px}
+.card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:16px}
+.ctitle{font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+.fg{margin-bottom:13px}
+label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:5px}
+label span{color:#DC2626}
+input,select,textarea{width:100%;padding:10px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:14px;color:#111827;background:#fff;outline:none;transition:border-color .2s;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:var(--cor,#534AB7)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:480px){.row2{grid-template-columns:1fr}}
+.btn-sub{width:100%;padding:14px;background:var(--cor,#534AB7);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .2s;margin-top:6px;font-family:inherit}
+.btn-sub:hover{opacity:.9}
+.btn-sub:disabled{opacity:.5;cursor:not-allowed}
+.success{background:#F0FDF4;border:1px solid #86EFAC;border-radius:12px;padding:28px;text-align:center;display:none}
+.success h2{color:#166534;font-size:20px;margin-bottom:8px}
+.success p{color:#15803D;font-size:14px;line-height:1.6}
+.err-msg{font-size:12px;color:#DC2626;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:8px 12px;margin-bottom:10px;display:none}
+.req-note{font-size:11px;color:#9CA3AF;margin-bottom:14px}
+.loading{position:fixed;inset:0;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;z-index:100;font-size:15px;color:#6B7280}
+.grupo-card{border:1.5px solid #E5E7EB;border-radius:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer;transition:all .15s}
+.grupo-card:hover{border-color:var(--cor,#534AB7);background:#FAFAFA}
+.grupo-card.sel{border-color:var(--cor,#534AB7);background:var(--cor-light,#EEEDFE)}
+.grupo-nome{font-size:14px;font-weight:600;color:#111827}
+.grupo-det{font-size:12px;color:#6B7280;margin-top:3px}
+:root{--cor:#534AB7;--cor-light:#EEEDFE}
+</style>
+</head>
+<body>
+<div id="loading" class="loading">⏳ A carregar...</div>
+
+<div class="header" id="header">
+  <img id="hlogo" src="" alt="">
+  <h1 id="htitle">GestiOK · Pilates</h1>
+  <p id="hsub">Formulário de Inscrição Online</p>
+</div>
+
+<div class="wrap">
+  <div id="form-wrap">
+    <p class="req-note">* Campos obrigatórios</p>
+
+    <!-- Grupo pretendido -->
+    <div class="card" id="card-grupos" style="display:none">
+      <div class="ctitle">Aula / Grupo pretendido</div>
+      <div id="lista-grupos"></div>
+      <div class="fg" style="margin-top:10px;margin-bottom:0">
+        <label>Ou indica o tipo de aula que procuras</label>
+        <select id="f-tipo">
+          <option value="">— Sem preferência —</option>
+          <option value="individual">Individual (1 pessoa)</option>
+          <option value="pequeno">Grupo pequeno (até 3 pessoas)</option>
+          <option value="medio">Grupo médio (até 6 pessoas)</option>
+          <option value="grande">Grupo grande (até 10 pessoas)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Dados pessoais -->
+    <div class="card">
+      <div class="ctitle">Dados pessoais</div>
+      <div class="fg">
+        <label>Nome completo <span>*</span></label>
+        <input type="text" id="f-nome" placeholder="Nome completo" required>
+      </div>
+      <div class="row2">
+        <div class="fg">
+          <label>Telemóvel <span>*</span></label>
+          <input type="tel" id="f-tel" placeholder="9XX XXX XXX">
+        </div>
+        <div class="fg">
+          <label>Email</label>
+          <input type="email" id="f-email" placeholder="email@exemplo.com">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="fg">
+          <label>Data de nascimento</label>
+          <input type="date" id="f-nasc">
+        </div>
+        <div class="fg">
+          <label>NIF</label>
+          <input type="text" id="f-nif" placeholder="123456789">
+        </div>
+      </div>
+      <div class="fg">
+        <label>Morada</label>
+        <input type="text" id="f-morada" placeholder="Rua, número, localidade...">
+      </div>
+    </div>
+
+    <!-- Info saúde básica -->
+    <div class="card">
+      <div class="ctitle">Informação relevante</div>
+      <div class="fg">
+        <label>Objectivos</label>
+        <input type="text" id="f-obj" placeholder="Reabilitação, bem-estar, perda de peso, força...">
+      </div>
+      <div class="fg">
+        <label>Lesões ou limitações físicas</label>
+        <textarea id="f-lesoes" rows="3" placeholder="Indica se tens alguma lesão, cirurgia recente ou limitação que a professora deva conhecer..."></textarea>
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label>Observações adicionais</label>
+        <textarea id="f-obs" rows="2" placeholder="Disponibilidade, preferência de horário, outras informações..."></textarea>
+      </div>
+    </div>
+
+    <p id="err-global" class="err-msg"></p>
+    <button class="btn-sub" id="btn-sub" onclick="submeter()">📋 Submeter pedido de inscrição</button>
+    <p style="font-size:11px;color:#9CA3AF;text-align:center;margin-top:10px">
+      O teu pedido será analisado pela administração. Receberás uma resposta em breve.
+    </p>
+  </div>
+
+  <div class="success" id="success">
+    <div style="font-size:48px;margin-bottom:12px">✅</div>
+    <h2>Pedido enviado!</h2>
+    <p>O teu pedido de inscrição foi recebido com sucesso.<br>A administração irá analisá-lo e entrar em contacto contigo.</p>
+    <p style="margin-top:14px;font-size:12px;color:#6B7280">Podes fechar esta página.</p>
+  </div>
+</div>
+
+<script>
+// ══ CONFIG — substitui pelos teus valores ══
+const SUPABASE_URL = 'https://rfjfcdlduguyipcghjjy.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmamZjZGxkdWd1eWlwY2doamp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NDUwMDMsImV4cCI6MjA5NTMyMTAwM30.eddH6ap18wIK_P0C9s2tYpQh4Z3uYrWARvgEbqywUSU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2); }
+
+// Grupo selecionado via URL ou clique
+let grupoSelId = null;
+
+// Parâmetro da URL: ?grupo=ID
+const urlParams = new URLSearchParams(window.location.search);
+const grupoUrlId = urlParams.get('grupo');
+
+async function init(){
+  try{
+    // Carregar config (branding)
+    const {data:cfg} = await sb.from('config').select('key,value');
+    if(cfg){
+      const c={};cfg.forEach(r=>c[r.key]=r.value);
+      const cor=c.org_cor||'#534AB7';
+      const nome=c.org_nome||'GestiOK';
+      const logo=c.org_logo||'';
+      document.documentElement.style.setProperty('--cor',cor);
+      // Calcular cor light (versão clara)
+      document.documentElement.style.setProperty('--cor-light',cor+'22');
+      document.getElementById('header').style.background=cor;
+      document.getElementById('htitle').textContent=nome+' · Pilates';
+      document.getElementById('hsub').textContent='Formulário de Inscrição Online';
+      document.title='Inscrição — '+nome;
+      document.querySelector('.btn-sub').style.background=cor;
+      if(logo){const img=document.getElementById('hlogo');img.src=logo;img.style.display='block';}
+    }
+
+    // Carregar grupos ativos
+    const {data:grupos} = await sb.from('grupos').select('*').eq('ativo',true).order('nome');
+    if(grupos&&grupos.length){
+      const tipoLabel={individual:'Individual',pequeno:'Grupo pequeno (≤3)',medio:'Grupo médio (≤6)',grande:'Grupo grande (≤10)'};
+      document.getElementById('card-grupos').style.display='block';
+
+      if(grupoUrlId){
+        // Vem de link específico de um grupo
+        const grp=grupos.find(g=>g.id===grupoUrlId);
+        if(grp){
+          grupoSelId=grp.id;
+          document.getElementById('lista-grupos').innerHTML=`
+            <div class="grupo-card sel">
+              <div class="grupo-nome">${grp.nome}</div>
+              <div class="grupo-det">${grp.modalidade} · ${tipoLabel[grp.tipo]||grp.tipo} · Vagas: ${grp.vagas_max}</div>
+            </div>`;
+        }
+      } else {
+        // Mostrar todos os grupos para escolher
+        document.getElementById('lista-grupos').innerHTML=grupos.map(g=>`
+          <div class="grupo-card" id="gc-${g.id}" onclick="selGrupo('${g.id}',this)">
+            <div class="grupo-nome">${g.nome}</div>
+            <div class="grupo-det">${g.modalidade} · ${tipoLabel[g.tipo]||g.tipo} · Vagas máx: ${g.vagas_max}</div>
+          </div>`).join('');
+      }
+    }
+  }catch(e){
+    console.warn('Erro ao carregar config:',e);
+  }finally{
+    document.getElementById('loading').style.display='none';
+  }
+}
+
+function selGrupo(id,el){
+  grupoSelId=id;
+  document.querySelectorAll('.grupo-card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+async function submeter(){
+  const nome=document.getElementById('f-nome').value.trim();
+  const tel=document.getElementById('f-tel').value.trim();
+  const errEl=document.getElementById('err-global');
+  errEl.style.display='none';
+
+  if(!nome){errEl.textContent='O nome é obrigatório.';errEl.style.display='block';return;}
+  if(!tel){errEl.textContent='O telemóvel é obrigatório.';errEl.style.display='block';return;}
+
+  const btn=document.getElementById('btn-sub');
+  btn.disabled=true; btn.textContent='A enviar...';
+
+  const record={
+    id:uid(),
+    nome,
+    email:document.getElementById('f-email').value.trim()||null,
+    telemovel:tel||null,
+    data_nasc:document.getElementById('f-nasc').value||null,
+    morada:document.getElementById('f-morada').value.trim()||null,
+    tipo_aula:document.getElementById('f-tipo').value||null,
+    grupo_id:grupoSelId||null,
+    obs:[
+      document.getElementById('f-obj').value.trim()?'Objectivos: '+document.getElementById('f-obj').value.trim():'',
+      document.getElementById('f-lesoes').value.trim()?'Lesões: '+document.getElementById('f-lesoes').value.trim():'',
+      document.getElementById('f-obs').value.trim(),
+    ].filter(Boolean).join('\n')||null,
+    estado:'Pendente',
+    criado_em:new Date().toISOString(),
+  };
+
+  try{
+    const {error}=await sb.from('inscricoes').insert(record);
+    if(error)throw error;
+    document.getElementById('form-wrap').style.display='none';
+    document.getElementById('success').style.display='block';
+    window.scrollTo(0,0);
+  }catch(err){
+    errEl.textContent='Erro ao enviar: '+err.message;
+    errEl.style.display='block';
+    btn.disabled=false;
+    btn.textContent='📋 Submeter pedido de inscrição';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

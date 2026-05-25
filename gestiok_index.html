@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GestiOK · Pilates</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+/* ── TOKENS ─────────────────────────────────────────────────── */
+:root{
+  --P:#534AB7; --PL:#EEEDFE; --PM:#AFA9EC; --PD:#3C3489;
+  --bg:#F4F3F8; --s:#fff; --s2:#F8F7FC;
+  --bd:rgba(83,74,183,.12); --bd2:rgba(83,74,183,.22);
+  --t:#1C1A2E; --t2:#6B6880; --t3:#9B98AC;
+  --green:#3B6D11; --gbg:#EAF3DE;
+  --amber:#854F0B; --abg:#FAEEDA;
+  --red:#A32D2D; --rbg:#FCEBEB;
+  --r:10px; --rl:14px;
+  --sw:220px;
+  --f:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --m:'Consolas',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:var(--f);font-size:14px;color:var(--t);background:var(--bg)}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:99px}
+
+/* ── LOGIN ──────────────────────────────────────────────────── */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1C1A2E,#2D2855,var(--P))}
+.lcard{background:#fff;border-radius:20px;padding:2rem;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.llogo{text-align:center;margin-bottom:1.25rem}
+.lmark{width:52px;height:52px;border-radius:14px;background:var(--PL);display:inline-flex;align-items:center;justify-content:center;margin-bottom:8px;overflow:hidden}
+.lmark img,.lmark svg{width:100%;height:100%;object-fit:cover}
+.ltitle{font-size:20px;font-weight:700;color:var(--t)}
+.lsub{font-size:12px;color:var(--t3);margin-top:2px}
+/* Tabs */
+.ltabs{display:flex;gap:3px;background:var(--bg);border-radius:var(--r);padding:3px;margin-bottom:1.25rem}
+.ltab{flex:1;padding:7px 4px;border:none;background:none;border-radius:8px;font-family:var(--f);font-size:12px;font-weight:500;color:var(--t2);cursor:pointer;transition:all .12s}
+.ltab.active{background:#fff;color:var(--P);box-shadow:0 1px 4px rgba(83,74,183,.15)}
+/* Pin */
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:16px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--bd2);transition:all .15s}
+.pin-dot.on{background:var(--P);border-color:var(--P)}
+.pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:210px;margin:0 auto 8px}
+.pk{padding:14px;border:1.5px solid var(--bd2);border-radius:var(--r);background:#fff;font-size:18px;font-weight:700;color:var(--t);cursor:pointer;text-align:center;user-select:none;transition:all .1s;font-family:var(--f)}
+.pk:hover{background:var(--PL);border-color:var(--PM)}
+.pk:active{transform:scale(.93)}
+.pk.del{font-size:14px;color:var(--t2)}
+.pk.empty{visibility:hidden}
+/* Prof select */
+.lsel{width:100%;padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r);font-family:var(--f);font-size:14px;color:var(--t);outline:none;margin-bottom:14px;background:#fff}
+.lerr{font-size:12px;color:var(--red);text-align:center;background:var(--rbg);border-radius:8px;padding:6px;margin-top:6px;display:none}
+.lbtn{width:100%;padding:11px;background:var(--P);color:#fff;border:none;border-radius:var(--r);font-family:var(--f);font-size:14px;font-weight:600;cursor:pointer;margin-top:4px;transition:background .12s}
+.lbtn:hover{background:var(--PD)}
+.linput{width:100%;padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r);font-family:var(--f);font-size:14px;color:var(--t);outline:none;transition:border-color .12s;margin-bottom:10px;background:#fff}
+.linput:focus{border-color:var(--P)}
+
+/* ── APP SHELL ──────────────────────────────────────────────── */
+#app{display:none;height:100vh;flex-direction:row}
+#app.on{display:flex}
+.sidebar{width:var(--sw);min-width:var(--sw);background:var(--s);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow-y:auto}
+.sbh{padding:1.1rem 1rem .9rem;border-bottom:1px solid var(--bd)}
+.sbbrand{display:flex;align-items:center;gap:9px}
+.sbicon{width:34px;height:34px;border-radius:9px;background:var(--PL);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.sbicon img,.sbicon svg{width:100%;height:100%;object-fit:cover}
+.sbname{font-size:14px;font-weight:700;color:var(--t)}
+.sbsub{font-size:10px;color:var(--t3)}
+.sbnav{flex:1;padding:.7rem}
+.nsec{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;padding:0 .4rem;margin:.9rem 0 .3rem}
+.nsec:first-child{margin-top:.2rem}
+.ni{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:var(--r);cursor:pointer;color:var(--t2);font-size:13px;transition:all .12s;margin-bottom:1px}
+.ni svg{width:15px;height:15px;flex-shrink:0;opacity:.65}
+.ni:hover,.ni.active{background:var(--PL);color:var(--P)}
+.ni:hover svg,.ni.active svg{opacity:1}
+.ni.active{font-weight:600}
+.nbadge{margin-left:auto;background:var(--P);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;min-width:18px;text-align:center}
+.nbadge.a{background:var(--amber)}
+.sbfoot{padding:.7rem;border-top:1px solid var(--bd)}
+.upill{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:var(--r)}
+.uav{width:28px;height:28px;border-radius:50%;background:var(--PL);color:var(--P);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.uname{font-size:12px;font-weight:600;color:var(--t)}
+.urole{font-size:10px;color:var(--t3)}
+.logoutbtn{margin-left:auto;background:none;border:none;cursor:pointer;color:var(--t3);display:flex;padding:4px;border-radius:6px}
+.logoutbtn:hover{color:var(--red);background:var(--rbg)}
+.logoutbtn svg{width:14px;height:14px}
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.topbar{background:var(--s);border-bottom:1px solid var(--bd);padding:0 1.5rem;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.tbtitle{font-size:15px;font-weight:700;color:var(--t)}
+.tbact{display:flex;gap:8px;align-items:center}
+.content{padding:1.5rem;flex:1}
+.page{display:none}
+.page.on{display:block}
+
+/* ── COMPONENTS ─────────────────────────────────────────────── */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:12px;margin-bottom:1.5rem}
+.metric{background:var(--s);border:1px solid var(--bd);border-radius:var(--rl);padding:1rem 1.2rem}
+.metric.ac{border-left:3px solid var(--P)}
+.mlabel{font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+.mval{font-size:26px;font-weight:700;color:var(--t);line-height:1}
+.msub{font-size:11px;color:var(--t2);margin-top:4px}
+.card{background:var(--s);border:1px solid var(--bd);border-radius:var(--rl);padding:1.2rem;margin-bottom:1rem}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.ct{font-size:13px;font-weight:700;color:var(--t)}
+.csub{font-size:11px;color:var(--t3)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:860px){.g2{grid-template-columns:1fr}}
+/* btn */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--s);color:var(--t);font-family:var(--f);font-size:13px;font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap}
+.btn svg{width:14px;height:14px}
+.btn:hover{background:var(--s2)}
+.btnp{background:var(--P);color:#fff;border-color:var(--P)}
+.btnp:hover{background:var(--PD)}
+.btns{padding:5px 10px;font-size:12px}
+.btnd{color:var(--red);border-color:var(--rbg)}
+.btnd:hover{background:var(--rbg)}
+/* table */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:7px 11px;color:var(--t3);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--bd);white-space:nowrap}
+td{padding:9px 11px;border-bottom:1px solid var(--bd);color:var(--t);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--s2)}
+.tdn{display:flex;align-items:center;gap:9px}
+/* avatar */
+.av{width:30px;height:30px;border-radius:50%;background:var(--PL);color:var(--P);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.avs{width:24px;height:24px;font-size:9px}
+/* badge */
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.bg{background:var(--gbg);color:var(--green)}
+.ba{background:var(--abg);color:var(--amber)}
+.br{background:var(--rbg);color:var(--red)}
+.bp{background:var(--PL);color:var(--P)}
+.bgr{background:#F1EFE8;color:#5F5E5A}
+/* form */
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.fl{font-size:12px;font-weight:600;color:var(--t2)}
+.fi,.fs,.fta{padding:9px 12px;border:1.5px solid var(--bd2);border-radius:var(--r);font-family:var(--f);font-size:13px;color:var(--t);background:var(--s);outline:none;transition:border-color .12s;width:100%}
+.fi:focus,.fs:focus,.fta:focus{border-color:var(--P)}
+.fta{resize:vertical;min-height:75px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fcol{grid-column:1/-1}
+/* modal */
+.mbg{display:none;position:fixed;inset:0;background:rgba(28,26,46,.45);z-index:100;align-items:center;justify-content:center;padding:1rem}
+.mbg.on{display:flex}
+.modal{background:var(--s);border-radius:var(--rl);border:1px solid var(--bd);padding:1.4rem;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.15)}
+.mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem}
+.mt{font-size:16px;font-weight:700;color:var(--t)}
+.mf{display:flex;justify-content:flex-end;gap:8px;margin-top:1.2rem}
+.xbtn{background:none;border:none;cursor:pointer;color:var(--t3);padding:4px;border-radius:6px;display:flex}
+.xbtn:hover{background:var(--s2);color:var(--t)}
+.xbtn svg{width:18px;height:18px}
+/* aula row */
+.arow{display:flex;align-items:center;gap:13px;padding:11px 0;border-bottom:1px solid var(--bd)}
+.arow:last-child{border-bottom:none;padding-bottom:0}
+.ahora{font-size:16px;font-weight:700;min-width:48px;font-family:var(--m)}
+.ainfo{flex:1}
+.anome{font-size:13px;font-weight:600}
+.adet{font-size:11px;color:var(--t3);margin-top:2px}
+.vbar{height:3px;background:var(--bd);border-radius:2px;width:80px;margin-top:5px}
+.vfill{height:100%;border-radius:2px;background:var(--P)}
+/* presença */
+.prow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd)}
+.prow:last-child{border-bottom:none}
+.ptbtn{padding:5px 12px;border-radius:99px;font-size:12px;font-weight:600;border:1.5px solid var(--bd2);background:var(--s);color:var(--t2);cursor:pointer;transition:all .12s}
+.ptbtn.p{background:var(--gbg);color:var(--green);border-color:var(--gbg)}
+.ptbtn.f{background:var(--rbg);color:var(--red);border-color:var(--rbg)}
+/* dias nav */
+.dnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+.dbtn{padding:5px 13px;border-radius:99px;border:1px solid var(--bd2);background:var(--s);font-family:var(--f);font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;transition:all .12s}
+.dbtn:hover{border-color:var(--PM);color:var(--P)}
+.dbtn.active{background:var(--P);color:#fff;border-color:var(--P)}
+/* espera */
+.epos{width:22px;height:22px;border-radius:50%;background:var(--abg);color:var(--amber);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+/* comunicado */
+.comcard{padding:12px 0;border-bottom:1px solid var(--bd)}
+.comcard:last-child{border-bottom:none}
+.comtit{font-size:13px;font-weight:700}
+.commeta{font-size:11px;color:var(--t3);margin-top:2px}
+.combody{font-size:12px;color:var(--t2);margin-top:6px;line-height:1.55}
+/* pag row */
+.pagrow{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--bd)}
+.pagrow:last-child{border-bottom:none}
+.pagnome{flex:1;font-size:13px}
+.pagval{font-size:14px;font-weight:700;font-family:var(--m)}
+/* ficha cliente */
+.ficha-section{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;padding:.5rem 0;border-bottom:1px solid var(--bd);margin:.8rem 0 .5rem}
+/* cor input */
+.cor-row{display:flex;align-items:center;gap:10px}
+.cor-prev{height:36px;flex:1;border-radius:var(--r);border:1px solid var(--bd2)}
+/* empty */
+.empty{text-align:center;padding:2rem 1rem;color:var(--t3)}
+.empty b{display:block;font-size:13px;font-weight:600;color:var(--t2);margin-bottom:4px}
+.loader{text-align:center;padding:2rem;color:var(--t3);font-size:13px}
+/* toast */
+#toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--t);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:13px;font-weight:600;transform:translateY(80px);opacity:0;transition:all .25s;z-index:999;pointer-events:none}
+#toast.on{transform:translateY(0);opacity:1}
+#toast.ok{background:var(--green)}
+#toast.err{background:var(--red)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div id="login">
+  <div class="lcard">
+    <div class="llogo">
+      <div class="lmark" id="lmark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#534AB7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><path d="M18 4l1.5 1.5M6 4L4.5 5.5"/></svg>
+      </div>
+      <div class="ltitle" id="lorg">GestiOK</div>
+      <div class="lsub" id="lsub">Gestão de Aulas</div>
+    </div>
+    <div class="ltabs">
+      <button class="ltab active" onclick="setTab('admin',this)">Admin</button>
+      <button class="ltab" onclick="setTab('prof',this)">Professor</button>
+    </div>
+    <!-- Admin PIN -->
+    <div id="tab-admin">
+      <p style="font-size:12px;color:var(--t2);text-align:center;margin-bottom:14px">PIN do administrador</p>
+      <div class="pin-dots">
+        <div class="pin-dot" id="ad0"></div><div class="pin-dot" id="ad1"></div>
+        <div class="pin-dot" id="ad2"></div><div class="pin-dot" id="ad3"></div>
+      </div>
+      <div class="pinpad">
+        <button class="pk" onclick="apin('1')">1</button><button class="pk" onclick="apin('2')">2</button><button class="pk" onclick="apin('3')">3</button>
+        <button class="pk" onclick="apin('4')">4</button><button class="pk" onclick="apin('5')">5</button><button class="pk" onclick="apin('6')">6</button>
+        <button class="pk" onclick="apin('7')">7</button><button class="pk" onclick="apin('8')">8</button><button class="pk" onclick="apin('9')">9</button>
+        <button class="pk empty"></button><button class="pk" onclick="apin('0')">0</button><button class="pk del" onclick="apinDel()">⌫</button>
+      </div>
+      <div class="lerr" id="adm-err">PIN incorreto.</div>
+    </div>
+    <!-- Prof -->
+    <div id="tab-prof" style="display:none">
+      <p style="font-size:12px;color:var(--t2);text-align:center;margin-bottom:10px">Seleciona o teu nome</p>
+      <select class="lsel" id="prof-sel"><option value="">A carregar...</option></select>
+      <div class="pin-dots">
+        <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
+      </div>
+      <div class="pinpad">
+        <button class="pk" onclick="ppin('1')">1</button><button class="pk" onclick="ppin('2')">2</button><button class="pk" onclick="ppin('3')">3</button>
+        <button class="pk" onclick="ppin('4')">4</button><button class="pk" onclick="ppin('5')">5</button><button class="pk" onclick="ppin('6')">6</button>
+        <button class="pk" onclick="ppin('7')">7</button><button class="pk" onclick="ppin('8')">8</button><button class="pk" onclick="ppin('9')">9</button>
+        <button class="pk empty"></button><button class="pk" onclick="ppin('0')">0</button><button class="pk del" onclick="ppinDel()">⌫</button>
+      </div>
+      <div class="lerr" id="prof-err">PIN incorreto.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ APP ═══════════════ -->
+<div id="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sbh">
+      <div class="sbbrand">
+        <div class="sbicon" id="sbicon">
+          <svg id="sbsvg" viewBox="0 0 24 24" fill="none" stroke="#534AB7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <img id="sbimg" src="" alt="" style="display:none">
+        </div>
+        <div><div class="sbname" id="sbname">GestiOK</div><div class="sbsub" id="sbsub">Pilates</div></div>
+      </div>
+    </div>
+    <div class="sbnav">
+      <div class="nsec">Geral</div>
+      <div class="ni active" onclick="goP('dashboard',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</div>
+      <div class="nsec">Gestão</div>
+      <div class="ni" id="ni-clientes" onclick="goP('clientes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clientes</div>
+      <div class="ni" id="ni-grupos" onclick="goP('grupos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>Grupos</div>
+      <div class="ni" id="ni-sessoes" onclick="goP('sessoes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Sessões</div>
+      <div class="ni" id="ni-presencas" onclick="goP('presencas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Presenças</div>
+      <div class="nsec">Financeiro</div>
+      <div class="ni" id="ni-pagamentos" onclick="goP('pagamentos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>Pagamentos<span class="nbadge a" id="bdg-pag" style="display:none">0</span></div>
+      <div class="nsec">Outros</div>
+      <div class="ni" id="ni-espera" onclick="goP('espera',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Lista de espera<span class="nbadge" id="bdg-esp" style="display:none">0</span></div>
+      <div class="ni" id="ni-comunicados" onclick="goP('comunicados',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Comunicados</div>
+      <div class="ni" id="ni-inscricoes" onclick="goP('inscricoes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Inscrições online<span class="nbadge" id="bdg-insc" style="display:none">0</span></div>
+      <div class="nsec" id="ns-admin">Sistema</div>
+      <div class="ni" id="ni-professores" onclick="goP('professores',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Professores</div>
+      <div class="ni" id="ni-config" onclick="goP('config',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configurações</div>
+    </div>
+    <div class="sbfoot">
+      <div class="upill">
+        <div class="uav" id="uav">A</div>
+        <div><div class="uname" id="uname">Admin</div><div class="urole" id="urole">Administrador</div></div>
+        <button class="logoutbtn" onclick="logout()" title="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+      </div>
+    </div>
+  </nav>
+  <div class="main">
+    <div class="topbar">
+      <div class="tbtitle" id="tbtitle">Dashboard</div>
+      <div class="tbact" id="tbact"></div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div id="p-dashboard" class="page on">
+        <div class="metrics">
+          <div class="metric ac"><div class="mlabel">Clientes ativos</div><div class="mval" id="m-cli">—</div><div class="msub">inscritos</div></div>
+          <div class="metric"><div class="mlabel">Sessões este mês</div><div class="mval" id="m-ses">—</div><div class="msub">agendadas</div></div>
+          <div class="metric"><div class="mlabel">Pagamentos em falta</div><div class="mval" id="m-pag">—</div><div class="msub">pendentes</div></div>
+          <div class="metric"><div class="mlabel">Lista de espera</div><div class="mval" id="m-esp">—</div><div class="msub">aguardam vaga</div></div>
+        </div>
+        <div class="g2">
+          <div class="card"><div class="ch"><div><div class="ct">Próximas sessões</div><div class="csub">esta semana</div></div></div><div id="d-ses"><div class="loader">A carregar...</div></div></div>
+          <div class="card"><div class="ch"><div class="ct">Pagamentos pendentes</div></div><div id="d-pag"><div class="loader">A carregar...</div></div></div>
+        </div>
+        <div class="g2">
+          <div class="card"><div class="ch"><div class="ct">Inscrições para aprovar</div><button class="btn btns" onclick="goP('inscricoes',document.getElementById('ni-inscricoes'))">Ver todas</button></div><div id="d-insc"><div class="loader">A carregar...</div></div></div>
+          <div class="card"><div class="ch"><div class="ct">Lista de espera</div><button class="btn btns" onclick="goP('espera',document.getElementById('ni-espera'))">Ver toda</button></div><div id="d-esp"><div class="loader">A carregar...</div></div></div>
+        </div>
+      </div>
+
+      <!-- CLIENTES -->
+      <div id="p-clientes" class="page">
+        <div class="card">
+          <div class="ch"><div class="ct">Clientes</div><button class="btn btnp btns" onclick="abrCliente()">+ Novo cliente</button></div>
+          <div class="tw"><table><thead><tr><th>Nome</th><th>Contacto</th><th>Nível</th><th>Estado</th><th>Ações</th></tr></thead><tbody id="tb-cli"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- GRUPOS -->
+      <div id="p-grupos" class="page">
+        <div class="card">
+          <div class="ch"><div class="ct">Grupos / Aulas</div><button class="btn btnp btns" onclick="abrGrupo()">+ Novo grupo</button></div>
+          <div class="tw"><table><thead><tr><th>Nome</th><th>Modalidade</th><th>Tipo</th><th>Vagas</th><th>Estado</th><th>Ações</th></tr></thead><tbody id="tb-grp"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- SESSÕES -->
+      <div id="p-sessoes" class="page">
+        <div class="card">
+          <div class="ch"><div class="ct">Sessões</div><button class="btn btnp btns" onclick="abrSessao()">+ Nova sessão</button></div>
+          <div class="tw"><table><thead><tr><th>Data</th><th>Hora</th><th>Grupo</th><th>Professor</th><th>Sala</th><th>Estado</th><th>Ações</th></tr></thead><tbody id="tb-ses"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- PRESENÇAS -->
+      <div id="p-presencas" class="page">
+        <div class="card">
+          <div class="ch"><div class="ct">Marcar presenças</div><button class="btn btns" onclick="exportPresPDF()">📄 PDF</button></div>
+          <div class="fg" style="max-width:320px;margin-bottom:1rem"><label class="fl">Sessão</label><select class="fs" id="sel-ses" onchange="renderPres()"></select></div>
+          <div id="lista-pres"><div class="loader">Seleciona uma sessão</div></div>
+        </div>
+      </div>
+
+      <!-- PAGAMENTOS -->
+      <div id="p-pagamentos" class="page">
+        <div class="card">
+          <div class="ch"><div class="ct">Pagamentos</div><div style="display:flex;gap:8px"><button class="btn btns" onclick="exportPagPDF()">📄 PDF</button><button class="btn btnp btns" onclick="abrPag()">+ Registar</button></div></div>
+          <div class="tw"><table><thead><tr><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Método</th><th>Data</th><th>Estado</th><th>Ações</th></tr></thead><tbody id="tb-pag"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ESPERA -->
+      <div id="p-espera" class="page">
+        <div class="card">
+          <div class="ch"><div class="ct">Lista de espera</div><button class="btn btnp btns" onclick="abrEspera()">+ Adicionar</button></div>
+          <div id="lista-esp"><div class="loader">A carregar...</div></div>
+        </div>
+      </div>
+
+      <!-- COMUNICADOS -->
+      <div id="p-comunicados" class="page">
+        <div class="card">
+          <div class="ch"><div class="ct">Comunicados</div><button class="btn btnp btns" onclick="abrCom()">+ Novo</button></div>
+          <div id="lista-com"><div class="loader">A carregar...</div></div>
+        </div>
+      </div>
+
+      <!-- INSCRIÇÕES ONLINE -->
+      <div id="p-inscricoes" class="page">
+        <div class="card">
+          <div class="ch"><div class="ct">Inscrições online</div></div>
+          <div class="tw"><table><thead><tr><th>Nome</th><th>Contacto</th><th>Tipo pretendido</th><th>Data</th><th>Estado</th><th>Ações</th></tr></thead><tbody id="tb-insc"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- PROFESSORES (só admin) -->
+      <div id="p-professores" class="page">
+        <div class="card">
+          <div class="ch"><div class="ct">Professores</div><button class="btn btnp btns" onclick="abrProf()">+ Novo professor</button></div>
+          <div class="tw"><table><thead><tr><th>Nome</th><th>Email</th><th>Telemóvel</th><th>Especialidade</th><th>PIN</th><th>Ações</th></tr></thead><tbody id="tb-prof"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- CONFIGURAÇÕES (só admin) -->
+      <div id="p-config" class="page">
+        <div class="g2">
+          <div>
+            <div class="card">
+              <div class="ct" style="margin-bottom:1rem">Organização</div>
+              <div class="fg"><label class="fl">Nome da organização</label><input class="fi" id="cfg-nome" placeholder="GestiOK Pilates"></div>
+              <div class="fg"><label class="fl">Subtítulo</label><input class="fi" id="cfg-sub" placeholder="Gestão de Aulas"></div>
+              <div class="fg"><label class="fl">Email de contacto</label><input class="fi" id="cfg-email" type="email"></div>
+              <div class="fg"><label class="fl">Telemóvel</label><input class="fi" id="cfg-tel"></div>
+              <div class="fg">
+                <label class="fl">Cor principal</label>
+                <div class="cor-row">
+                  <input type="color" class="fi" id="cfg-cor" value="#534AB7" style="width:56px;height:38px;padding:2px;cursor:pointer">
+                  <div class="cor-prev" id="cfg-cor-prev" style="background:#534AB7"></div>
+                </div>
+              </div>
+              <div class="fg"><label class="fl">URL do logótipo</label><input class="fi" id="cfg-logo" placeholder="https://..."></div>
+              <button class="btn btnp" style="width:100%;margin-top:4px" onclick="guardarConfig()">Guardar configurações</button>
+            </div>
+            <div class="card">
+              <div class="ct" style="margin-bottom:1rem">PIN do administrador</div>
+              <p style="font-size:12px;color:var(--t2);margin-bottom:12px">Define o PIN de 4 dígitos para acesso de administrador.</p>
+              <div style="display:flex;justify-content:center;gap:10px;margin-bottom:12px">
+                <div class="pin-dot" id="np0"></div><div class="pin-dot" id="np1"></div>
+                <div class="pin-dot" id="np2"></div><div class="pin-dot" id="np3"></div>
+              </div>
+              <div class="pinpad" style="margin-bottom:10px">
+                <button class="pk" onclick="npin('1')">1</button><button class="pk" onclick="npin('2')">2</button><button class="pk" onclick="npin('3')">3</button>
+                <button class="pk" onclick="npin('4')">4</button><button class="pk" onclick="npin('5')">5</button><button class="pk" onclick="npin('6')">6</button>
+                <button class="pk" onclick="npin('7')">7</button><button class="pk" onclick="npin('8')">8</button><button class="pk" onclick="npin('9')">9</button>
+                <button class="pk empty"></button><button class="pk" onclick="npin('0')">0</button><button class="pk del" onclick="npinDel()">⌫</button>
+              </div>
+              <button class="btn btnp" style="width:100%" onclick="guardarPinAdmin()">Actualizar PIN admin</button>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="ct" style="margin-bottom:1rem">Link de inscrição pública</div>
+              <p style="font-size:12px;color:var(--t2);margin-bottom:12px">Partilha este link para novas inscrições online. Cada grupo tem o seu próprio link.</p>
+              <div class="fg"><label class="fl">Grupo</label><select class="fs" id="cfg-grp-link"></select></div>
+              <button class="btn" style="width:100%;margin-top:10px" onclick="copiarLink()">📋 Copiar link de inscrição</button>
+            </div>
+            <div class="card">
+              <div class="ct" style="margin-bottom:.75rem">Planos de pagamento</div>
+              <div class="tw"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Valor</th><th>Ações</th></tr></thead><tbody id="tb-planos"></tbody></table></div>
+              <button class="btn btnp btns" style="margin-top:10px" onclick="abrPlano()">+ Novo plano</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODAIS ═══════════════ -->
+
+<!-- Cliente -->
+<div id="m-cliente" class="mbg">
+  <div class="modal" style="max-width:560px">
+    <div class="mh"><div class="mt" id="m-cli-title">Novo cliente</div><button class="xbtn" onclick="fM('m-cliente')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <input type="hidden" id="f-cli-id">
+    <div class="ficha-section">Dados pessoais</div>
+    <div class="fgrid">
+      <div class="fg fcol"><label class="fl">Nome completo *</label><input class="fi" id="f-cli-nome" placeholder="Ana Silva"></div>
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="f-cli-email" type="email"></div>
+      <div class="fg"><label class="fl">Telemóvel</label><input class="fi" id="f-cli-tel" placeholder="+351 9xx xxx xxx"></div>
+      <div class="fg"><label class="fl">Data de nascimento</label><input class="fi" id="f-cli-nasc" type="date"></div>
+      <div class="fg"><label class="fl">NIF</label><input class="fi" id="f-cli-nif" placeholder="123456789"></div>
+      <div class="fg"><label class="fl">Estado</label><select class="fs" id="f-cli-estado"><option value="ativo">Ativo</option><option value="pausado">Pausado</option><option value="inativo">Inativo</option><option value="espera">Lista de espera</option></select></div>
+      <div class="fg fcol"><label class="fl">Morada</label><input class="fi" id="f-cli-morada" placeholder="Rua, número..."></div>
+    </div>
+    <div class="ficha-section">Ficha de saúde</div>
+    <div class="fgrid">
+      <div class="fg"><label class="fl">Nível</label><select class="fs" id="f-cli-nivel"><option value="iniciante">Iniciante</option><option value="intermedio">Intermédio</option><option value="avancado">Avançado</option></select></div>
+      <div class="fg fcol"><label class="fl">Objectivos</label><input class="fi" id="f-cli-obj" placeholder="Reabilitação, bem-estar, força..."></div>
+      <div class="fg fcol"><label class="fl">Lesões / Patologias</label><textarea class="fta" id="f-cli-lesoes" placeholder="Descreve lesões, limitações ou patologias relevantes..."></textarea></div>
+      <div class="fg"><label class="fl">Medicação</label><input class="fi" id="f-cli-med" placeholder="Medicação relevante"></div>
+      <div class="fg fcol"><label class="fl">Observações gerais</label><textarea class="fta" id="f-cli-obs" placeholder="Notas adicionais..."></textarea></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="fM('m-cliente')">Cancelar</button><button class="btn btnp" onclick="guardarCliente()">Guardar</button></div>
+  </div>
+</div>
+
+<!-- Grupo -->
+<div id="m-grupo" class="mbg">
+  <div class="modal">
+    <div class="mh"><div class="mt" id="m-grp-title">Novo grupo</div><button class="xbtn" onclick="fM('m-grupo')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <input type="hidden" id="f-grp-id">
+    <div class="fgrid">
+      <div class="fg fcol"><label class="fl">Nome *</label><input class="fi" id="f-grp-nome" placeholder="Pilates Matinal, Yoga Adultos..."></div>
+      <div class="fg"><label class="fl">Modalidade *</label><input class="fi" id="f-grp-modal" placeholder="Pilates, Yoga, Funcional..."></div>
+      <div class="fg"><label class="fl">Tipo *</label><select class="fs" id="f-grp-tipo"><option value="individual">Individual (1 pessoa)</option><option value="pequeno">Grupo pequeno (≤3)</option><option value="medio">Grupo médio (≤6)</option><option value="grande">Grupo grande (≤10)</option></select></div>
+      <div class="fg"><label class="fl">Vagas máximas</label><input class="fi" id="f-grp-vagas" type="number" value="6" min="1" max="30"></div>
+      <div class="fg"><label class="fl">Cor</label><input type="color" class="fi" id="f-grp-cor" value="#534AB7" style="height:38px;padding:2px;cursor:pointer"></div>
+      <div class="fg"><label class="fl">Estado</label><select class="fs" id="f-grp-ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+      <div class="fg fcol"><label class="fl">Descrição</label><input class="fi" id="f-grp-desc" placeholder="Breve descrição do grupo..."></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="fM('m-grupo')">Cancelar</button><button class="btn btnp" onclick="guardarGrupo()">Guardar</button></div>
+  </div>
+</div>
+
+<!-- Sessão -->
+<div id="m-sessao" class="mbg">
+  <div class="modal">
+    <div class="mh"><div class="mt" id="m-ses-title">Nova sessão</div><button class="xbtn" onclick="fM('m-sessao')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <input type="hidden" id="f-ses-id">
+    <div class="fgrid">
+      <div class="fg"><label class="fl">Grupo *</label><select class="fs" id="f-ses-grp"></select></div>
+      <div class="fg"><label class="fl">Professor</label><select class="fs" id="f-ses-prof"></select></div>
+      <div class="fg"><label class="fl">Data *</label><input class="fi" id="f-ses-data" type="date"></div>
+      <div class="fg"><label class="fl">Hora *</label><input class="fi" id="f-ses-hora" type="time" value="09:00"></div>
+      <div class="fg"><label class="fl">Duração (min)</label><input class="fi" id="f-ses-dur" type="number" value="60" min="15"></div>
+      <div class="fg"><label class="fl">Sala</label><input class="fi" id="f-ses-sala" placeholder="Sala 1"></div>
+      <div class="fg"><label class="fl">Estado</label><select class="fs" id="f-ses-estado"><option value="agendada">Agendada</option><option value="realizada">Realizada</option><option value="cancelada">Cancelada</option></select></div>
+      <div class="fg fcol"><label class="fl">Notas</label><input class="fi" id="f-ses-notas" placeholder="Observações sobre a sessão..."></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="fM('m-sessao')">Cancelar</button><button class="btn btnp" onclick="guardarSessao()">Guardar</button></div>
+  </div>
+</div>
+
+<!-- Pagamento -->
+<div id="m-pag" class="mbg">
+  <div class="modal">
+    <div class="mh"><div class="mt">Registar pagamento</div><button class="xbtn" onclick="fM('m-pag')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="fgrid">
+      <div class="fg fcol"><label class="fl">Cliente *</label><select class="fs" id="f-pag-cli"></select></div>
+      <div class="fg"><label class="fl">Plano</label><select class="fs" id="f-pag-plano"><option value="">— Sem plano —</option></select></div>
+      <div class="fg"><label class="fl">Descrição</label><input class="fi" id="f-pag-desc" placeholder="Mensalidade junho..."></div>
+      <div class="fg"><label class="fl">Valor (€) *</label><input class="fi" id="f-pag-val" type="number" step="0.01" placeholder="45.00"></div>
+      <div class="fg"><label class="fl">Método</label><select class="fs" id="f-pag-met"><option value="transferencia">Transferência</option><option value="numerario">Numerário</option><option value="mbway">MBWay</option><option value="mb">Referência MB</option></select></div>
+      <div class="fg"><label class="fl">Estado</label><select class="fs" id="f-pag-est"><option value="pago">Pago</option><option value="pendente">Pendente</option><option value="em_falta">Em falta</option></select></div>
+      <div class="fg"><label class="fl">Data pagamento</label><input class="fi" id="f-pag-data" type="date"></div>
+      <div class="fg"><label class="fl">Data vencimento</label><input class="fi" id="f-pag-venc" type="date"></div>
+      <div class="fg fcol"><label class="fl">Notas</label><input class="fi" id="f-pag-notas" placeholder="Referência, observações..."></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="fM('m-pag')">Cancelar</button><button class="btn btnp" onclick="guardarPag()">Guardar</button></div>
+  </div>
+</div>
+
+<!-- Espera -->
+<div id="m-espera" class="mbg">
+  <div class="modal">
+    <div class="mh"><div class="mt">Lista de espera</div><button class="xbtn" onclick="fM('m-espera')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="fgrid">
+      <div class="fg"><label class="fl">Nome *</label><input class="fi" id="f-esp-nome" placeholder="Beatriz Mendes"></div>
+      <div class="fg"><label class="fl">Telemóvel</label><input class="fi" id="f-esp-tel" placeholder="+351 9xx xxx xxx"></div>
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="f-esp-email" type="email"></div>
+      <div class="fg"><label class="fl">Grupo pretendido</label><select class="fs" id="f-esp-grp"><option value="">— Qualquer —</option></select></div>
+      <div class="fg fcol"><label class="fl">Tipo de aula pretendida</label><select class="fs" id="f-esp-tipo"><option value="">— Qualquer —</option><option value="individual">Individual</option><option value="pequeno">Grupo pequeno (≤3)</option><option value="medio">Grupo médio (≤6)</option><option value="grande">Grupo grande (≤10)</option></select></div>
+      <div class="fg fcol"><label class="fl">Observações</label><input class="fi" id="f-esp-obs" placeholder="Disponibilidade, preferências..."></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="fM('m-espera')">Cancelar</button><button class="btn btnp" onclick="guardarEspera()">Guardar</button></div>
+  </div>
+</div>
+
+<!-- Comunicado -->
+<div id="m-com" class="mbg">
+  <div class="modal">
+    <div class="mh"><div class="mt" id="m-com-title">Novo comunicado</div><button class="xbtn" onclick="fM('m-com')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <input type="hidden" id="f-com-id">
+    <div class="fgrid">
+      <div class="fg fcol"><label class="fl">Título *</label><input class="fi" id="f-com-tit" placeholder="Alteração de horário..."></div>
+      <div class="fg fcol"><label class="fl">Mensagem *</label><textarea class="fta" id="f-com-body" style="min-height:110px" placeholder="Texto do comunicado..."></textarea></div>
+      <div class="fg fcol"><label class="fl">Destinatários</label><select class="fs" id="f-com-dest"><option value="todos">Todos os clientes</option></select></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="fM('m-com')">Cancelar</button><button class="btn btnp" onclick="guardarCom()">Publicar</button></div>
+  </div>
+</div>
+
+<!-- Professor -->
+<div id="m-prof" class="mbg">
+  <div class="modal">
+    <div class="mh"><div class="mt" id="m-prof-title">Novo professor</div><button class="xbtn" onclick="fM('m-prof')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <input type="hidden" id="f-prof-id">
+    <div class="fgrid">
+      <div class="fg fcol"><label class="fl">Nome *</label><input class="fi" id="f-prof-nome" placeholder="Mariana Costa"></div>
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="f-prof-email" type="email"></div>
+      <div class="fg"><label class="fl">Telemóvel</label><input class="fi" id="f-prof-tel"></div>
+      <div class="fg fcol"><label class="fl">Especialidade</label><input class="fi" id="f-prof-espec" placeholder="Pilates clínico, Yoga..."></div>
+      <div class="fg fcol"><label class="fl">Notas</label><textarea class="fta" id="f-prof-notas" placeholder="Formação, certificações..."></textarea></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;padding:.5rem 0;border-bottom:1px solid var(--bd);margin:.5rem 0">PIN de acesso (4 dígitos)</div>
+    <div style="display:flex;justify-content:center;gap:10px;margin-bottom:12px">
+      <div class="pin-dot" id="pp0"></div><div class="pin-dot" id="pp1"></div>
+      <div class="pin-dot" id="pp2"></div><div class="pin-dot" id="pp3"></div>
+    </div>
+    <div class="pinpad" style="margin-bottom:6px">
+      <button class="pk" onclick="pppin('1')">1</button><button class="pk" onclick="pppin('2')">2</button><button class="pk" onclick="pppin('3')">3</button>
+      <button class="pk" onclick="pppin('4')">4</button><button class="pk" onclick="pppin('5')">5</button><button class="pk" onclick="pppin('6')">6</button>
+      <button class="pk" onclick="pppin('7')">7</button><button class="pk" onclick="pppin('8')">8</button><button class="pk" onclick="pppin('9')">9</button>
+      <button class="pk empty"></button><button class="pk" onclick="pppin('0')">0</button><button class="pk del" onclick="pppinDel()">⌫</button>
+    </div>
+    <p style="font-size:11px;color:var(--t3);text-align:center;margin-bottom:6px">Deixa em branco para não alterar o PIN existente.</p>
+    <div class="mf"><button class="btn" onclick="fM('m-prof')">Cancelar</button><button class="btn btnp" onclick="guardarProf()">Guardar</button></div>
+  </div>
+</div>
+
+<!-- Plano -->
+<div id="m-plano" class="mbg">
+  <div class="modal">
+    <div class="mh"><div class="mt">Novo plano</div><button class="xbtn" onclick="fM('m-plano')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="fgrid">
+      <div class="fg fcol"><label class="fl">Nome *</label><input class="fi" id="f-pl-nome" placeholder="Mensalidade individual..."></div>
+      <div class="fg"><label class="fl">Tipo</label><select class="fs" id="f-pl-tipo"><option value="mensalidade">Mensalidade</option><option value="pacote">Pacote</option><option value="avulso">Avulso</option></select></div>
+      <div class="fg"><label class="fl">Valor (€) *</label><input class="fi" id="f-pl-val" type="number" step="0.01" placeholder="45.00"></div>
+      <div class="fg"><label class="fl">Nº aulas (pacote)</label><input class="fi" id="f-pl-aulas" type="number" placeholder="10"></div>
+      <div class="fg fcol"><label class="fl">Descrição</label><input class="fi" id="f-pl-desc" placeholder="Breve descrição..."></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="fM('m-plano')">Cancelar</button><button class="btn btnp" onclick="guardarPlano()">Guardar</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// CONFIGURAÇÃO — substitui pelos teus valores Supabase
+// ════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://rfjfcdlduguyipcghjjy.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmamZjZGxkdWd1eWlwY2doamp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NDUwMDMsImV4cCI6MjA5NTMyMTAwM30.eddH6ap18wIK_P0C9s2tYpQh4Z3uYrWARvgEbqywUSU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ════════════════════════════════════════════════════════
+const D = {
+  cfg:{}, clientes:[], grupos:[], sessoes:[], professores:[],
+  pagamentos:[], espera:[], comunicados:[], inscricoes:[], planos:[],
+  presencas:{}, perfil:null, profLogado:null
+};
+const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2); }
+function ini(n){ return (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+function fmt(v){ return parseFloat(v||0).toFixed(2); }
+function fmtData(d){ return d?new Date(d).toLocaleDateString('pt-PT'):'—'; }
+
+// ════════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════════
+let toastT;
+function toast(msg,tipo=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='on '+(tipo||'');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.className='',3000);
+}
+
+// ════════════════════════════════════════════════════════
+// CONFIG / BRANDING
+// ════════════════════════════════════════════════════════
+async function loadConfig(){
+  const {data}=await sb.from('config').select('key,value');
+  if(!data)return;
+  data.forEach(r=>D.cfg[r.key]=r.value);
+  aplicarBranding();
+}
+function aplicarBranding(){
+  const c=D.cfg;
+  const cor=c.org_cor||'#534AB7';
+  const nome=c.org_nome||'GestiOK';
+  const logo=c.org_logo||'';
+  // CSS var
+  document.documentElement.style.setProperty('--P',cor);
+  // Login
+  document.getElementById('lorg').textContent=nome;
+  document.getElementById('lsub').textContent=c.org_sub||'Gestão de Aulas';
+  // Sidebar
+  document.getElementById('sbname').textContent=nome;
+  document.getElementById('sbsub').textContent=c.org_sub||'Pilates';
+  // Logo
+  if(logo){
+    const mk=document.getElementById('lmark');
+    mk.innerHTML=`<img src="${logo}" alt="">`;
+    document.getElementById('sbimg').src=logo;
+    document.getElementById('sbimg').style.display='block';
+    document.getElementById('sbsvg').style.display='none';
+  }
+  // Form config
+  document.getElementById('cfg-nome').value=nome;
+  document.getElementById('cfg-sub').value=c.org_sub||'';
+  document.getElementById('cfg-email').value=c.org_email||'';
+  document.getElementById('cfg-tel').value=c.org_tel||'';
+  document.getElementById('cfg-cor').value=cor;
+  document.getElementById('cfg-cor-prev').style.background=cor;
+  document.getElementById('cfg-logo').value=logo;
+}
+document.getElementById('cfg-cor').addEventListener('input',function(){
+  document.getElementById('cfg-cor-prev').style.background=this.value;
+});
+async function guardarConfig(){
+  const vals={
+    org_nome:document.getElementById('cfg-nome').value.trim(),
+    org_sub:document.getElementById('cfg-sub').value.trim(),
+    org_email:document.getElementById('cfg-email').value.trim(),
+    org_tel:document.getElementById('cfg-tel').value.trim(),
+    org_cor:document.getElementById('cfg-cor').value,
+    org_logo:document.getElementById('cfg-logo').value.trim(),
+  };
+  for(const [k,v] of Object.entries(vals)){
+    await sb.from('config').upsert({key:k,value:v});
+    D.cfg[k]=v;
+  }
+  aplicarBranding();
+  toast('Configurações guardadas!','ok');
+}
+
+// ════════════════════════════════════════════════════════
+// LOGIN — TABS
+// ════════════════════════════════════════════════════════
+let loginTab='admin';
+function setTab(tab,el){
+  loginTab=tab;
+  document.querySelectorAll('.ltab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-admin').style.display=tab==='admin'?'block':'none';
+  document.getElementById('tab-prof').style.display=tab==='prof'?'block':'none';
+  if(tab==='prof') popularSelProfs();
+}
+
+// ════════════════════════════════════════════════════════
+// LOGIN — ADMIN PIN
+// ════════════════════════════════════════════════════════
+let aPin='';
+function apin(d){
+  if(aPin.length>=4)return;
+  aPin+=d; updDots('ad',aPin);
+  if(aPin.length===4) setTimeout(verificarAdmin,200);
+}
+function apinDel(){ aPin=aPin.slice(0,-1); updDots('ad',aPin); }
+function verificarAdmin(){
+  const err=document.getElementById('adm-err');
+  err.style.display='none';
+  if(aPin===(D.cfg.admin_pin||'1234')){
+    D.perfil='admin'; D.profLogado=null;
+    document.getElementById('uname').textContent='Admin';
+    document.getElementById('uav').textContent='AD';
+    document.getElementById('urole').textContent='Administrador';
+    mostrarApp(true);
+  } else {
+    err.style.display='block';
+    aPin=''; updDots('ad',aPin);
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// LOGIN — PROFESSOR PIN
+// ════════════════════════════════════════════════════════
+let pPin='';
+function popularSelProfs(){
+  const sel=document.getElementById('prof-sel');
+  sel.innerHTML='<option value="">Seleciona o teu nome</option>'+
+    D.professores.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+}
+function ppin(d){
+  if(pPin.length>=4)return;
+  pPin+=d; updDots('pd',pPin);
+  if(pPin.length===4) setTimeout(verificarProf,200);
+}
+function ppinDel(){ pPin=pPin.slice(0,-1); updDots('pd',pPin); }
+function verificarProf(){
+  const err=document.getElementById('prof-err');
+  err.style.display='none';
+  const profId=document.getElementById('prof-sel').value;
+  if(!profId){err.textContent='Seleciona o teu nome.';err.style.display='block';pPin='';updDots('pd',pPin);return;}
+  const prof=D.professores.find(p=>p.id===profId);
+  if(prof && prof.pin===pPin){
+    D.perfil='professor'; D.profLogado=prof;
+    document.getElementById('uname').textContent=prof.nome;
+    document.getElementById('uav').textContent=ini(prof.nome);
+    document.getElementById('urole').textContent='Professor(a)';
+    mostrarApp(false);
+  } else {
+    err.style.display='block';
+    pPin=''; updDots('pd',pPin);
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// PIN helpers
+// ════════════════════════════════════════════════════════
+function updDots(pre,pin){
+  for(let i=0;i<4;i++){
+    const d=document.getElementById(pre+i);
+    if(d)d.classList.toggle('on',i<pin.length);
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// APP
+// ════════════════════════════════════════════════════════
+function mostrarApp(isAdmin){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').classList.add('on');
+  // Esconder secções de admin se for professor
+  const adminOnly=['ni-professores','ni-config','ns-admin'];
+  adminOnly.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=isAdmin?'':'none';
+  });
+  carregarTudo();
+}
+
+function logout(){
+  D.perfil=null; D.profLogado=null;
+  aPin=''; pPin='';
+  updDots('ad',aPin); updDots('pd',pPin);
+  document.getElementById('app').classList.remove('on');
+  document.getElementById('login').style.display='flex';
+}
+
+// ════════════════════════════════════════════════════════
+// CARREGAR TUDO
+// ════════════════════════════════════════════════════════
+async function carregarTudo(){
+  await Promise.all([
+    carregarClientes(), carregarGrupos(), carregarSessoes(),
+    carregarProfessores(), carregarPagamentos(), carregarEspera(),
+    carregarComunicados(), carregarInscricoes(), carregarPlanos()
+  ]);
+  renderDash(); actualizarBadges();
+}
+async function carregarClientes(){ const {data}=await sb.from('clientes').select('*').order('nome'); D.clientes=data||[]; renderClientes(); }
+async function carregarGrupos(){ const {data}=await sb.from('grupos').select('*').order('nome'); D.grupos=data||[]; renderGrupos(); popularSels(); }
+async function carregarSessoes(){ const {data}=await sb.from('sessoes').select('*').order('data',{ascending:false}).order('hora'); D.sessoes=data||[]; renderSessoes(); }
+async function carregarProfessores(){ const {data}=await sb.from('professores').select('*').order('nome'); D.professores=data||[]; renderProfessores(); }
+async function carregarPagamentos(){ const {data}=await sb.from('pagamentos').select('*').order('created_at',{ascending:false}); D.pagamentos=data||[]; renderPagamentos(); }
+async function carregarEspera(){ const {data}=await sb.from('espera').select('*').order('created_at'); D.espera=data||[]; renderEspera(); }
+async function carregarComunicados(){ const {data}=await sb.from('comunicados').select('*').order('created_at',{ascending:false}); D.comunicados=data||[]; renderComunicados(); }
+async function carregarInscricoes(){ const {data}=await sb.from('inscricoes').select('*').order('criado_em',{ascending:false}); D.inscricoes=data||[]; renderInscricoes(); }
+async function carregarPlanos(){ const {data}=await sb.from('planos').select('*').order('nome'); D.planos=data||[]; renderPlanos(); }
+
+// ════════════════════════════════════════════════════════
+// NAVEGAÇÃO
+// ════════════════════════════════════════════════════════
+const TITLES={dashboard:'Dashboard',clientes:'Clientes',grupos:'Grupos / Aulas',sessoes:'Sessões',presencas:'Presenças',pagamentos:'Pagamentos',espera:'Lista de Espera',comunicados:'Comunicados',inscricoes:'Inscrições Online',professores:'Professores',config:'Configurações'};
+function goP(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.getElementById('p-'+id).classList.add('on');
+  if(el)el.classList.add('active');
+  document.getElementById('tbtitle').textContent=TITLES[id]||id;
+  if(id==='presencas') popularSelSessoes();
+  if(id==='config'){ popularSelGrpLink(); renderPlanos(); aplicarBranding(); }
+}
+
+// ════════════════════════════════════════════════════════
+// MODAIS
+// ════════════════════════════════════════════════════════
+function oM(id){document.getElementById(id).classList.add('on');}
+function fM(id){document.getElementById(id).classList.remove('on');}
+// Fechar ao clicar fora
+document.querySelectorAll('.mbg').forEach(m=>{
+  m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('on'); });
+});
+
+// ════════════════════════════════════════════════════════
+// POPULAR SELECTS
+// ════════════════════════════════════════════════════════
+function popularSels(){
+  const grps=D.grupos.filter(g=>g.ativo);
+  // Sessão — grupo
+  const sg=document.getElementById('f-ses-grp');
+  if(sg)sg.innerHTML=grps.map(g=>`<option value="${g.id}">${g.nome}</option>`).join('');
+  // Sessão — professor
+  const sp=document.getElementById('f-ses-prof');
+  if(sp)sp.innerHTML='<option value="">— Sem professor —</option>'+D.professores.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  // Espera — grupo
+  const eg=document.getElementById('f-esp-grp');
+  if(eg)eg.innerHTML='<option value="">— Qualquer —</option>'+grps.map(g=>`<option value="${g.id}">${g.nome}</option>`).join('');
+  // Comunicado — dest
+  const cd=document.getElementById('f-com-dest');
+  if(cd)cd.innerHTML='<option value="todos">Todos os clientes</option>'+grps.map(g=>`<option value="${g.id}">Grupo: ${g.nome}</option>`).join('');
+  // Pagamento — cliente
+  const pc=document.getElementById('f-pag-cli');
+  if(pc)pc.innerHTML=D.clientes.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  // Pagamento — plano
+  const pp=document.getElementById('f-pag-plano');
+  if(pp)pp.innerHTML='<option value="">— Sem plano —</option>'+D.planos.map(p=>`<option value="${p.id}">${p.nome} (${fmt(p.valor)}€)</option>`).join('');
+}
+function popularSelSessoes(){
+  const sel=document.getElementById('sel-ses');
+  if(sel)sel.innerHTML='<option value="">— Selecionar sessão —</option>'+
+    D.sessoes.slice(0,50).map(s=>{
+      const g=D.grupos.find(x=>x.id===s.grupo_id);
+      return`<option value="${s.id}">${s.data} ${s.hora} — ${g?.nome||'?'}</option>`;
+    }).join('');
+}
+function popularSelGrpLink(){
+  const sel=document.getElementById('cfg-grp-link');
+  if(sel)sel.innerHTML=D.grupos.map(g=>`<option value="${g.id}">${g.nome}</option>`).join('');
+}
+function copiarLink(){
+  const grpId=document.getElementById('cfg-grp-link')?.value;
+  const base=window.location.href.replace('index.html','').replace(/\?.*$/,'');
+  navigator.clipboard.writeText(base+'inscricao.html?grupo='+grpId);
+  toast('Link copiado!','ok');
+}
+
+// ════════════════════════════════════════════════════════
+// BADGE STATUS helpers
+// ════════════════════════════════════════════════════════
+function bdgE(e){
+  const m={ativo:'bg',ativa:'bg',pago:'bg',realizada:'bg',Aprovada:'bg',pausado:'ba',pendente:'ba',agendada:'ba',Pendente:'ba',em_falta:'br',cancelada:'br',Rejeitada:'br',inativo:'bgr',Espera:'ba'};
+  const l={ativo:'Ativo',ativa:'Ativa',pago:'Pago',realizada:'Realizada',Aprovada:'Aprovada',pausado:'Pausado',pendente:'Pendente',agendada:'Agendada',Pendente:'Pendente',em_falta:'Em falta',cancelada:'Cancelada',Rejeitada:'Rejeitada',inativo:'Inativo',Espera:'Espera',espera:'Espera'};
+  return`<span class="badge ${m[e]||'bgr'}">${l[e]||e}</span>`;
+}
+function atualizarBadges(){
+  const pag=D.pagamentos.filter(p=>p.estado!=='pago').length;
+  const esp=D.espera.length;
+  const insc=D.inscricoes.filter(i=>i.estado==='Pendente').length;
+  const bp=document.getElementById('bdg-pag');if(bp){bp.textContent=pag;bp.style.display=pag?'':'none';}
+  const be=document.getElementById('bdg-esp');if(be){be.textContent=esp;be.style.display=esp?'':'none';}
+  const bi=document.getElementById('bdg-insc');if(bi){bi.textContent=insc;bi.style.display=insc?'':'none';}
+}
+
+// ════════════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════════════
+function renderDash(){
+  document.getElementById('m-cli').textContent=D.clientes.filter(c=>c.estado==='ativo').length;
+  const mes=new Date().getMonth();
+  document.getElementById('m-ses').textContent=D.sessoes.filter(s=>s.data&&new Date(s.data).getMonth()===mes).length;
+  document.getElementById('m-pag').textContent=D.pagamentos.filter(p=>p.estado!=='pago').length;
+  document.getElementById('m-esp').textContent=D.espera.length;
+
+  // Próximas sessões
+  const hoje=new Date().toISOString().slice(0,10);
+  const prox=D.sessoes.filter(s=>s.data>=hoje).slice(0,4);
+  document.getElementById('d-ses').innerHTML=prox.length?prox.map(s=>{
+    const g=D.grupos.find(x=>x.id===s.grupo_id);
+    const pr=D.professores.find(x=>x.id===s.professor_id);
+    return`<div class="arow"><div class="ahora">${s.hora||'--:--'}</div><div class="ainfo"><div class="anome">${g?.nome||'—'}</div><div class="adet">${s.data} · ${pr?.nome||'Sem professor'} · ${s.sala||''}</div></div>${bdgE(s.estado)}</div>`;
+  }).join(''):'<div class="empty"><b>Sem sessões próximas</b></div>';
+
+  // Pagamentos pendentes
+  const pp=D.pagamentos.filter(p=>p.estado!=='pago').slice(0,5);
+  document.getElementById('d-pag').innerHTML=pp.length?pp.map(p=>{
+    const c=D.clientes.find(x=>x.id===p.cliente_id);
+    return`<div class="pagrow"><div class="avs">${ini(c?.nome||'?')}</div><div class="pagnome">${c?.nome||'—'} <span style="color:var(--t3);font-size:11px">· ${p.descricao||p.tipo||'—'}</span></div><div class="pagval">${fmt(p.valor)} €</div>${bdgE(p.estado)}</div>`;
+  }).join(''):'<div class="empty"><b>Sem pendentes</b></div>';
+
+  // Inscrições
+  const pi=D.inscricoes.filter(i=>i.estado==='Pendente').slice(0,3);
+  document.getElementById('d-insc').innerHTML=pi.length?pi.map(i=>`<div class="pagrow"><div class="avs">${ini(i.nome)}</div><div class="pagnome">${i.nome} <span style="color:var(--t3);font-size:11px">· ${i.tipo_aula||'—'}</span></div><div style="display:flex;gap:6px"><button class="btn btns" style="background:var(--gbg);color:var(--green);border-color:var(--gbg);font-size:11px" onclick="aprovarInsc('${i.id}')">Aprovar</button><button class="btn btns btnd" style="font-size:11px" onclick="rejeitarInsc('${i.id}')">Rejeitar</button></div></div>`).join(''):'<div class="empty"><b>Sem inscrições pendentes</b></div>';
+
+  // Espera
+  document.getElementById('d-esp').innerHTML=D.espera.length?D.espera.slice(0,4).map((e,i)=>`<div class="pagrow"><div class="epos">${i+1}</div><div class="pagnome">${e.nome} <span style="color:var(--t3);font-size:11px">· ${e.telemovel||'—'} · ${D.grupos.find(g=>g.id===e.grupo_id)?.nome||e.tipo_aula||'Qualquer'}</span></div></div>`).join(''):'<div class="empty"><b>Lista vazia</b></div>';
+}
+
+// ════════════════════════════════════════════════════════
+// CLIENTES
+// ════════════════════════════════════════════════════════
+function abrCliente(c=null){
+  document.getElementById('f-cli-id').value=c?.id||'';
+  document.getElementById('f-cli-nome').value=c?.nome||'';
+  document.getElementById('f-cli-email').value=c?.email||'';
+  document.getElementById('f-cli-tel').value=c?.telemovel||'';
+  document.getElementById('f-cli-nasc').value=c?.data_nasc||'';
+  document.getElementById('f-cli-nif').value=c?.nif||'';
+  document.getElementById('f-cli-morada').value=c?.morada||'';
+  document.getElementById('f-cli-estado').value=c?.estado||'ativo';
+  document.getElementById('f-cli-nivel').value=c?.nivel||'iniciante';
+  document.getElementById('f-cli-obj').value=c?.objectivos||'';
+  document.getElementById('f-cli-lesoes').value=c?.lesoes||'';
+  document.getElementById('f-cli-med').value=c?.medicacao||'';
+  document.getElementById('f-cli-obs').value=c?.obs||'';
+  document.getElementById('m-cli-title').textContent=c?'Editar cliente':'Novo cliente';
+  oM('m-cliente');
+}
+async function guardarCliente(){
+  const id=document.getElementById('f-cli-id').value;
+  const d={nome:document.getElementById('f-cli-nome').value.trim(),email:document.getElementById('f-cli-email').value.trim()||null,telemovel:document.getElementById('f-cli-tel').value.trim()||null,data_nasc:document.getElementById('f-cli-nasc').value||null,nif:document.getElementById('f-cli-nif').value.trim()||null,morada:document.getElementById('f-cli-morada').value.trim()||null,estado:document.getElementById('f-cli-estado').value,nivel:document.getElementById('f-cli-nivel').value,objectivos:document.getElementById('f-cli-obj').value.trim()||null,lesoes:document.getElementById('f-cli-lesoes').value.trim()||null,medicacao:document.getElementById('f-cli-med').value.trim()||null,obs:document.getElementById('f-cli-obs').value.trim()||null};
+  if(!d.nome){toast('Preenche o nome','err');return;}
+  let err;
+  if(id){({error:err}=await sb.from('clientes').update(d).eq('id',id));}
+  else{d.id=uid();({error:err}=await sb.from('clientes').insert(d));}
+  if(err){toast('Erro: '+err.message,'err');return;}
+  fM('m-cliente'); toast(id?'Cliente atualizado!':'Cliente criado!','ok');
+  await carregarClientes(); atualizarBadges();
+}
+async function eliminarCliente(id){if(!confirm('Eliminar cliente?'))return;await sb.from('clientes').delete().eq('id',id);toast('Eliminado','ok');await carregarClientes();}
+function renderClientes(){
+  const tb=document.getElementById('tb-cli');if(!tb)return;
+  const nivelBdg={iniciante:'bgr',intermedio:'ba',avancado:'bp'};
+  tb.innerHTML=D.clientes.length?D.clientes.map(c=>`<tr>
+    <td><div class="tdn"><div class="av">${ini(c.nome)}</div>${c.nome}</div></td>
+    <td style="font-size:12px;color:var(--t2)">${c.email||'—'}<br>${c.telemovel||''}</td>
+    <td><span class="badge ${nivelBdg[c.nivel]||'bgr'}">${c.nivel||'iniciante'}</span></td>
+    <td>${bdgE(c.estado)}</td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btns" onclick='abrCliente(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️</button>
+      <button class="btn btns btnd" onclick="eliminarCliente('${c.id}')">🗑️</button>
+    </div></td>
+  </tr>`).join(''):`<tr><td colspan="5"><div class="empty"><b>Sem clientes</b><span>Clica em "Novo cliente"</span></div></td></tr>`;
+}
+
+// ════════════════════════════════════════════════════════
+// GRUPOS
+// ════════════════════════════════════════════════════════
+function abrGrupo(g=null){
+  document.getElementById('f-grp-id').value=g?.id||'';
+  document.getElementById('f-grp-nome').value=g?.nome||'';
+  document.getElementById('f-grp-modal').value=g?.modalidade||'';
+  document.getElementById('f-grp-tipo').value=g?.tipo||'medio';
+  document.getElementById('f-grp-vagas').value=g?.vagas_max||6;
+  document.getElementById('f-grp-cor').value=g?.cor||'#534AB7';
+  document.getElementById('f-grp-ativo').value=g?.ativo===false?'false':'true';
+  document.getElementById('f-grp-desc').value=g?.descricao||'';
+  document.getElementById('m-grp-title').textContent=g?'Editar grupo':'Novo grupo';
+  oM('m-grupo');
+}
+async function guardarGrupo(){
+  const id=document.getElementById('f-grp-id').value;
+  const d={nome:document.getElementById('f-grp-nome').value.trim(),modalidade:document.getElementById('f-grp-modal').value.trim(),tipo:document.getElementById('f-grp-tipo').value,vagas_max:parseInt(document.getElementById('f-grp-vagas').value)||6,cor:document.getElementById('f-grp-cor').value,ativo:document.getElementById('f-grp-ativo').value==='true',descricao:document.getElementById('f-grp-desc').value.trim()||null};
+  if(!d.nome||!d.modalidade){toast('Preenche nome e modalidade','err');return;}
+  let err;
+  if(id){({error:err}=await sb.from('grupos').update(d).eq('id',id));}
+  else{d.id=uid();({error:err}=await sb.from('grupos').insert(d));}
+  if(err){toast('Erro: '+err.message,'err');return;}
+  fM('m-grupo'); toast(id?'Grupo atualizado!':'Grupo criado!','ok');
+  await carregarGrupos();
+}
+async function eliminarGrupo(id){if(!confirm('Eliminar grupo?'))return;await sb.from('grupos').delete().eq('id',id);toast('Eliminado','ok');await carregarGrupos();}
+function renderGrupos(){
+  const tb=document.getElementById('tb-grp');if(!tb)return;
+  const tipoLabel={individual:'Individual',pequeno:'Grupo pequeno',medio:'Grupo médio',grande:'Grupo grande'};
+  tb.innerHTML=D.grupos.length?D.grupos.map(g=>`<tr>
+    <td><div class="tdn"><div style="width:10px;height:10px;border-radius:3px;background:${g.cor||'#534AB7'};flex-shrink:0"></div>${g.nome}</div></td>
+    <td style="font-size:12px">${g.modalidade||'—'}</td>
+    <td><span class="badge bp">${tipoLabel[g.tipo]||g.tipo}</span></td>
+    <td style="font-family:var(--m);font-size:12px">${g.vagas_max}</td>
+    <td>${g.ativo?'<span class="badge bg">Ativo</span>':'<span class="badge bgr">Inativo</span>'}</td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btns" onclick='abrGrupo(${JSON.stringify(g).replace(/'/g,"&#39;")})'>✏️</button>
+      <button class="btn btns btnd" onclick="eliminarGrupo('${g.id}')">🗑️</button>
+    </div></td>
+  </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><b>Sem grupos</b></div></td></tr>`;
+}
+
+// ════════════════════════════════════════════════════════
+// SESSÕES
+// ════════════════════════════════════════════════════════
+function abrSessao(s=null){
+  popularSels();
+  document.getElementById('f-ses-id').value=s?.id||'';
+  document.getElementById('f-ses-grp').value=s?.grupo_id||'';
+  document.getElementById('f-ses-prof').value=s?.professor_id||'';
+  document.getElementById('f-ses-data').value=s?.data||new Date().toISOString().slice(0,10);
+  document.getElementById('f-ses-hora').value=s?.hora||'09:00';
+  document.getElementById('f-ses-dur').value=s?.duracao_min||60;
+  document.getElementById('f-ses-sala').value=s?.sala||'';
+  document.getElementById('f-ses-estado').value=s?.estado||'agendada';
+  document.getElementById('f-ses-notas').value=s?.notas||'';
+  document.getElementById('m-ses-title').textContent=s?'Editar sessão':'Nova sessão';
+  oM('m-sessao');
+}
+async function guardarSessao(){
+  const id=document.getElementById('f-ses-id').value;
+  const d={grupo_id:document.getElementById('f-ses-grp').value,professor_id:document.getElementById('f-ses-prof').value||null,data:document.getElementById('f-ses-data').value,hora:document.getElementById('f-ses-hora').value,duracao_min:parseInt(document.getElementById('f-ses-dur').value)||60,sala:document.getElementById('f-ses-sala').value.trim()||null,estado:document.getElementById('f-ses-estado').value,notas:document.getElementById('f-ses-notas').value.trim()||null};
+  if(!d.grupo_id||!d.data){toast('Preenche grupo e data','err');return;}
+  let err;
+  if(id){({error:err}=await sb.from('sessoes').update(d).eq('id',id));}
+  else{d.id=uid();({error:err}=await sb.from('sessoes').insert(d));}
+  if(err){toast('Erro: '+err.message,'err');return;}
+  fM('m-sessao'); toast(id?'Sessão atualizada!':'Sessão criada!','ok');
+  await carregarSessoes();
+}
+async function eliminarSessao(id){if(!confirm('Eliminar sessão?'))return;await sb.from('sessoes').delete().eq('id',id);toast('Eliminada','ok');await carregarSessoes();}
+function renderSessoes(){
+  const tb=document.getElementById('tb-ses');if(!tb)return;
+  tb.innerHTML=D.sessoes.length?D.sessoes.map(s=>{
+    const g=D.grupos.find(x=>x.id===s.grupo_id);
+    const pr=D.professores.find(x=>x.id===s.professor_id);
+    return`<tr>
+      <td style="font-family:var(--m);font-size:12px">${s.data||'—'}</td>
+      <td style="font-family:var(--m);font-size:12px">${s.hora||'—'}</td>
+      <td><span class="badge bp">${g?.nome||'—'}</span></td>
+      <td style="font-size:12px">${pr?.nome||'—'}</td>
+      <td style="font-size:12px">${s.sala||'—'}</td>
+      <td>${bdgE(s.estado)}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btns" onclick='abrSessao(${JSON.stringify(s).replace(/'/g,"&#39;")})'>✏️</button>
+        <button class="btn btns btnd" onclick="eliminarSessao('${s.id}')">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="empty"><b>Sem sessões</b></div></td></tr>`;
+}
+
+// ════════════════════════════════════════════════════════
+// PRESENÇAS
+// ════════════════════════════════════════════════════════
+async function renderPres(){
+  const sesId=document.getElementById('sel-ses')?.value;
+  const lista=document.getElementById('lista-pres');
+  if(!lista)return;
+  if(!sesId){lista.innerHTML='<div class="loader">Seleciona uma sessão</div>';return;}
+  const ses=D.sessoes.find(s=>s.id===sesId);
+  const grp=D.grupos.find(g=>g.id===ses?.grupo_id);
+  // Buscar inscritos neste grupo
+  const {data:insc}=await sb.from('inscricoes_grupo').select('*').eq('grupo_id',ses?.grupo_id||'').eq('estado','ativa');
+  const inscritos=(insc||[]).map(i=>D.clientes.find(c=>c.id===i.cliente_id)).filter(Boolean);
+  if(!inscritos.length){lista.innerHTML='<div class="empty"><b>Sem clientes inscritos neste grupo</b></div>';return;}
+  // Buscar presenças existentes
+  const {data:presDb}=await sb.from('presencas').select('*').eq('sessao_id',sesId);
+  const presMap={};(presDb||[]).forEach(p=>{presMap[p.cliente_id]=p.estado;});
+  if(!D.presencas[sesId])D.presencas[sesId]={...presMap};
+  lista.innerHTML=`<div style="margin-bottom:12px;font-size:12px;color:var(--t2)">Grupo: <b>${grp?.nome||'—'}</b> · ${inscritos.length} inscritos</div>`+
+    inscritos.map(c=>{
+      const est=D.presencas[sesId][c.id]||'';
+      return`<div class="prow">
+        <div class="avs">${ini(c.nome)}</div>
+        <div style="flex:1;font-size:13px;font-weight:600">${c.nome}</div>
+        <div style="display:flex;gap:6px">
+          <button class="ptbtn${est==='presente'?' p':''}" onclick="marcPres('${sesId}','${c.id}','presente',this)">✓ Presente</button>
+          <button class="ptbtn${est==='falta'?' f':''}" onclick="marcPres('${sesId}','${c.id}','falta',this)">✗ Falta</button>
+        </div>
+      </div>`;
+    }).join('');
+}
+async function marcPres(sesId,cliId,estado,btn){
+  if(!D.presencas[sesId])D.presencas[sesId]={};
+  D.presencas[sesId][cliId]=estado;
+  // Atualizar UI
+  const row=btn.closest('.prow');
+  row.querySelectorAll('.ptbtn').forEach(b=>{b.classList.remove('p','f');});
+  btn.classList.add(estado==='presente'?'p':'f');
+  // Guardar no Supabase
+  const id=`${sesId}_${cliId}`;
+  await sb.from('presencas').upsert({id,sessao_id:sesId,cliente_id:cliId,estado});
+}
+
+// ════════════════════════════════════════════════════════
+// PAGAMENTOS
+// ════════════════════════════════════════════════════════
+function abrPag(){
+  popularSels();
+  document.getElementById('f-pag-data').value=new Date().toISOString().slice(0,10);
+  oM('m-pag');
+}
+async function guardarPag(){
+  const planoId=document.getElementById('f-pag-plano').value;
+  const plano=D.planos.find(p=>p.id===planoId);
+  const d={id:uid(),cliente_id:document.getElementById('f-pag-cli').value,plano_id:planoId||null,descricao:document.getElementById('f-pag-desc').value.trim()||plano?.nome||null,valor:parseFloat(document.getElementById('f-pag-val').value)||plano?.valor||0,metodo:document.getElementById('f-pag-met').value,estado:document.getElementById('f-pag-est').value,data_pag:document.getElementById('f-pag-data').value||null,data_venc:document.getElementById('f-pag-venc').value||null,notas:document.getElementById('f-pag-notas').value.trim()||null};
+  if(!d.cliente_id||!d.valor){toast('Preenche cliente e valor','err');return;}
+  const {error}=await sb.from('pagamentos').insert(d);
+  if(error){toast('Erro: '+error.message,'err');return;}
+  fM('m-pag'); toast('Pagamento registado!','ok');
+  await carregarPagamentos(); atualizarBadges();
+}
+async function eliminarPag(id){if(!confirm('Eliminar?'))return;await sb.from('pagamentos').delete().eq('id',id);toast('Eliminado','ok');await carregarPagamentos();}
+function renderPagamentos(){
+  const tb=document.getElementById('tb-pag');if(!tb)return;
+  tb.innerHTML=D.pagamentos.length?D.pagamentos.map(p=>{
+    const c=D.clientes.find(x=>x.id===p.cliente_id);
+    return`<tr>
+      <td><div class="tdn"><div class="avs">${ini(c?.nome||'?')}</div>${c?.nome||'—'}</div></td>
+      <td style="font-size:12px">${p.descricao||'—'}</td>
+      <td style="font-family:var(--m);font-weight:700">${fmt(p.valor)} €</td>
+      <td style="font-size:12px">${p.metodo||'—'}</td>
+      <td style="font-size:12px;color:var(--t2)">${fmtData(p.data_pag)}</td>
+      <td>${bdgE(p.estado)}</td>
+      <td><button class="btn btns btnd" onclick="eliminarPag('${p.id}')">🗑️</button></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="empty"><b>Sem pagamentos</b></div></td></tr>`;
+}
+
+// ════════════════════════════════════════════════════════
+// ESPERA
+// ════════════════════════════════════════════════════════
+function abrEspera(){
+  popularSels();
+  document.getElementById('f-esp-nome').value='';
+  document.getElementById('f-esp-tel').value='';
+  document.getElementById('f-esp-email').value='';
+  document.getElementById('f-esp-obs').value='';
+  oM('m-espera');
+}
+async function guardarEspera(){
+  const d={id:uid(),nome:document.getElementById('f-esp-nome').value.trim(),telemovel:document.getElementById('f-esp-tel').value.trim()||null,email:document.getElementById('f-esp-email').value.trim()||null,grupo_id:document.getElementById('f-esp-grp').value||null,tipo_aula:document.getElementById('f-esp-tipo').value||null,obs:document.getElementById('f-esp-obs').value.trim()||null,posicao:D.espera.length+1};
+  if(!d.nome){toast('Preenche o nome','err');return;}
+  const {error}=await sb.from('espera').insert(d);
+  if(error){toast('Erro: '+error.message,'err');return;}
+  fM('m-espera'); toast('Adicionado à lista!','ok');
+  await carregarEspera(); atualizarBadges();
+}
+async function removerEspera(id){await sb.from('espera').delete().eq('id',id);toast('Removido','ok');await carregarEspera();atualizarBadges();}
+function renderEspera(){
+  const lista=document.getElementById('lista-esp');if(!lista)return;
+  lista.innerHTML=D.espera.length?D.espera.map((e,i)=>`<div class="prow">
+    <div class="epos">${i+1}</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600">${e.nome}</div>
+      <div style="font-size:11px;color:var(--t3)">${e.telemovel||'—'} · ${e.email||'—'} · ${D.grupos.find(g=>g.id===e.grupo_id)?.nome||e.tipo_aula||'Qualquer aula'}</div>
+      ${e.obs?`<div style="font-size:11px;color:var(--t2);margin-top:2px">${e.obs}</div>`:''}
+    </div>
+    <button class="btn btns btnd" onclick="removerEspera('${e.id}')">Remover</button>
+  </div>`).join(''):'<div class="empty"><b>Lista de espera vazia</b></div>';
+}
+
+// ════════════════════════════════════════════════════════
+// COMUNICADOS
+// ════════════════════════════════════════════════════════
+function abrCom(c=null){
+  popularSels();
+  document.getElementById('f-com-id').value=c?.id||'';
+  document.getElementById('f-com-tit').value=c?.titulo||'';
+  document.getElementById('f-com-body').value=c?.corpo||'';
+  document.getElementById('f-com-dest').value=c?.destinatarios||'todos';
+  document.getElementById('m-com-title').textContent=c?'Editar comunicado':'Novo comunicado';
+  oM('m-com');
+}
+async function guardarCom(){
+  const id=document.getElementById('f-com-id').value;
+  const d={titulo:document.getElementById('f-com-tit').value.trim(),corpo:document.getElementById('f-com-body').value.trim(),destinatarios:document.getElementById('f-com-dest').value,estado:'publicado',criado_por:D.perfil==='admin'?'Admin':D.profLogado?.nome||'—'};
+  if(!d.titulo||!d.corpo){toast('Preenche título e mensagem','err');return;}
+  let err;
+  if(id){({error:err}=await sb.from('comunicados').update(d).eq('id',id));}
+  else{d.id=uid();({error:err}=await sb.from('comunicados').insert(d));}
+  if(err){toast('Erro: '+err.message,'err');return;}
+  fM('m-com'); toast(id?'Comunicado editado!':'Comunicado publicado!','ok');
+  await carregarComunicados();
+}
+async function eliminarCom(id){if(!confirm('Eliminar comunicado?'))return;await sb.from('comunicados').delete().eq('id',id);toast('Eliminado','ok');await carregarComunicados();}
+function renderComunicados(){
+  const lista=document.getElementById('lista-com');if(!lista)return;
+  lista.innerHTML=D.comunicados.length?D.comunicados.map(c=>`<div class="comcard">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="comtit">${c.titulo}</div>
+      <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px">
+        <button class="btn btns" onclick='abrCom(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️</button>
+        <button class="btn btns btnd" onclick="eliminarCom('${c.id}')">🗑️</button>
+      </div>
+    </div>
+    <div class="commeta">${fmtData(c.created_at)} · ${c.criado_por||'—'} · Dest: ${c.destinatarios==='todos'?'Todos':D.grupos.find(g=>g.id===c.destinatarios)?.nome||c.destinatarios}</div>
+    <div class="combody">${c.corpo}</div>
+  </div>`).join(''):'<div class="empty"><b>Sem comunicados</b></div>';
+}
+
+// ════════════════════════════════════════════════════════
+// INSCRIÇÕES ONLINE
+// ════════════════════════════════════════════════════════
+async function aprovarInsc(id){
+  const i=D.inscricoes.find(x=>x.id===id);if(!i)return;
+  await sb.from('inscricoes').update({estado:'Aprovada',processado_em:new Date().toISOString()}).eq('id',id);
+  toast('Inscrição aprovada!','ok');
+  await carregarInscricoes(); atualizarBadges(); renderDash();
+}
+async function rejeitarInsc(id){
+  await sb.from('inscricoes').update({estado:'Rejeitada',processado_em:new Date().toISOString()}).eq('id',id);
+  toast('Rejeitada','ok');
+  await carregarInscricoes(); atualizarBadges(); renderDash();
+}
+async function moverEsperaInsc(id){
+  const i=D.inscricoes.find(x=>x.id===id);if(!i)return;
+  await sb.from('espera').insert({id:uid(),nome:i.nome,telemovel:i.telemovel||null,email:i.email||null,tipo_aula:i.tipo_aula||null,grupo_id:i.grupo_id||null,obs:'Via inscrição online',posicao:D.espera.length+1});
+  await sb.from('inscricoes').update({estado:'Espera'}).eq('id',id);
+  toast('Movido para lista de espera','ok');
+  await Promise.all([carregarInscricoes(),carregarEspera()]); atualizarBadges(); renderDash();
+}
+function renderInscricoes(){
+  const tb=document.getElementById('tb-insc');if(!tb)return;
+  tb.innerHTML=D.inscricoes.length?D.inscricoes.map(i=>`<tr>
+    <td><div class="tdn"><div class="avs">${ini(i.nome)}</div>${i.nome}</div></td>
+    <td style="font-size:12px">${i.email||'—'}<br>${i.telemovel||''}</td>
+    <td style="font-size:12px">${i.tipo_aula||'—'}</td>
+    <td style="font-size:12px;color:var(--t2)">${fmtData(i.criado_em)}</td>
+    <td>${bdgE(i.estado)}</td>
+    <td><div style="display:flex;gap:4px;flex-wrap:wrap">
+      ${i.estado==='Pendente'?`
+        <button class="btn btns" style="background:var(--gbg);color:var(--green);border-color:var(--gbg);font-size:11px" onclick="aprovarInsc('${i.id}')">Aprovar</button>
+        <button class="btn btns" style="background:var(--abg);color:var(--amber);border-color:var(--abg);font-size:11px" onclick="moverEsperaInsc('${i.id}')">Espera</button>
+        <button class="btn btns btnd" style="font-size:11px" onclick="rejeitarInsc('${i.id}')">Rejeitar</button>
+      `:''}
+    </div></td>
+  </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><b>Sem inscrições</b></div></td></tr>`;
+}
+
+// ════════════════════════════════════════════════════════
+// PROFESSORES
+// ════════════════════════════════════════════════════════
+let ppPin='';
+function pppin(d){if(ppPin.length>=4)return;ppPin+=d;updDots('pp',ppPin);}
+function pppinDel(){ppPin=ppPin.slice(0,-1);updDots('pp',ppPin);}
+function abrProf(p=null){
+  ppPin=''; updDots('pp',ppPin);
+  document.getElementById('f-prof-id').value=p?.id||'';
+  document.getElementById('f-prof-nome').value=p?.nome||'';
+  document.getElementById('f-prof-email').value=p?.email||'';
+  document.getElementById('f-prof-tel').value=p?.telemovel||'';
+  document.getElementById('f-prof-espec').value=p?.especialidade||'';
+  document.getElementById('f-prof-notas').value=p?.notas||'';
+  document.getElementById('m-prof-title').textContent=p?'Editar professor':'Novo professor';
+  oM('m-prof');
+}
+async function guardarProf(){
+  const id=document.getElementById('f-prof-id').value;
+  const d={nome:document.getElementById('f-prof-nome').value.trim(),email:document.getElementById('f-prof-email').value.trim()||null,telemovel:document.getElementById('f-prof-tel').value.trim()||null,especialidade:document.getElementById('f-prof-espec').value.trim()||null,notas:document.getElementById('f-prof-notas').value.trim()||null,ativo:true};
+  if(ppPin.length===4)d.pin=ppPin;
+  if(!d.nome){toast('Preenche o nome','err');return;}
+  if(!id&&ppPin.length!==4){toast('Define um PIN de 4 dígitos','err');return;}
+  let err;
+  if(id){({error:err}=await sb.from('professores').update(d).eq('id',id));}
+  else{d.id=uid();({error:err}=await sb.from('professores').insert(d));}
+  if(err){toast('Erro: '+err.message,'err');return;}
+  fM('m-prof'); toast(id?'Professor atualizado!':'Professor criado!','ok');
+  await carregarProfessores();
+}
+async function eliminarProf(id){if(!confirm('Eliminar professor?'))return;await sb.from('professores').delete().eq('id',id);toast('Eliminado','ok');await carregarProfessores();}
+function renderProfessores(){
+  const tb=document.getElementById('tb-prof');if(!tb)return;
+  tb.innerHTML=D.professores.length?D.professores.map(p=>`<tr>
+    <td><div class="tdn"><div class="av">${ini(p.nome)}</div>${p.nome}</div></td>
+    <td style="font-size:12px;color:var(--t2)">${p.email||'—'}</td>
+    <td style="font-size:12px">${p.telemovel||'—'}</td>
+    <td style="font-size:12px">${p.especialidade||'—'}</td>
+    <td><span class="badge ${p.pin?'bg':'bgr'}">${p.pin?'✓ Definido':'Sem PIN'}</span></td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btns" onclick='abrProf(${JSON.stringify(p).replace(/'/g,"&#39;")})'>✏️</button>
+      <button class="btn btns btnd" onclick="eliminarProf('${p.id}')">🗑️</button>
+    </div></td>
+  </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><b>Sem professores</b></div></td></tr>`;
+}
+
+// ════════════════════════════════════════════════════════
+// PIN ADMIN (config)
+// ════════════════════════════════════════════════════════
+let npPin='';
+function npin(d){if(npPin.length>=4)return;npPin+=d;updDots('np',npPin);}
+function npinDel(){npPin=npPin.slice(0,-1);updDots('np',npPin);}
+async function guardarPinAdmin(){
+  if(npPin.length!==4){toast('Introduz 4 dígitos','err');return;}
+  await sb.from('config').upsert({key:'admin_pin',value:npPin});
+  D.cfg.admin_pin=npPin;
+  npPin=''; updDots('np',npPin);
+  toast('PIN do admin atualizado!','ok');
+}
+
+// ════════════════════════════════════════════════════════
+// PLANOS
+// ════════════════════════════════════════════════════════
+function abrPlano(){
+  document.getElementById('f-pl-nome').value='';
+  document.getElementById('f-pl-tipo').value='mensalidade';
+  document.getElementById('f-pl-val').value='';
+  document.getElementById('f-pl-aulas').value='';
+  document.getElementById('f-pl-desc').value='';
+  oM('m-plano');
+}
+async function guardarPlano(){
+  const d={id:uid(),nome:document.getElementById('f-pl-nome').value.trim(),tipo:document.getElementById('f-pl-tipo').value,valor:parseFloat(document.getElementById('f-pl-val').value)||0,num_aulas:parseInt(document.getElementById('f-pl-aulas').value)||null,descricao:document.getElementById('f-pl-desc').value.trim()||null,ativo:true};
+  if(!d.nome||!d.valor){toast('Preenche nome e valor','err');return;}
+  const {error}=await sb.from('planos').insert(d);
+  if(error){toast('Erro: '+error.message,'err');return;}
+  fM('m-plano'); toast('Plano criado!','ok');
+  await carregarPlanos();
+}
+async function eliminarPlano(id){if(!confirm('Eliminar plano?'))return;await sb.from('planos').delete().eq('id',id);toast('Eliminado','ok');await carregarPlanos();}
+function renderPlanos(){
+  const tb=document.getElementById('tb-planos');if(!tb)return;
+  tb.innerHTML=D.planos.length?D.planos.map(p=>`<tr>
+    <td style="font-size:13px">${p.nome}</td>
+    <td><span class="badge bgr" style="font-size:10px">${p.tipo}</span></td>
+    <td style="font-family:var(--m);font-weight:700">${fmt(p.valor)} €</td>
+    <td><button class="btn btns btnd" onclick="eliminarPlano('${p.id}')">🗑️</button></td>
+  </tr>`).join(''):`<tr><td colspan="4"><div class="empty"><b>Sem planos</b></div></td></tr>`;
+}
+
+// ════════════════════════════════════════════════════════
+// PDF
+// ════════════════════════════════════════════════════════
+function pdfHeader(doc,titulo){
+  const cor=D.cfg.org_cor||'#534AB7';
+  const rgb=cor.match(/\w\w/g).map(x=>parseInt(x,16));
+  doc.setFillColor(...rgb); doc.rect(0,0,210,18,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
+  doc.text(D.cfg.org_nome||'GestiOK',14,12);
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text(titulo,196,12,{align:'right'});
+  doc.setTextColor(0);
+}
+function pdfFooter(doc){
+  const n=doc.getNumberOfPages();
+  for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(150);doc.text(`${D.cfg.org_nome||'GestiOK'} · ${new Date().toLocaleDateString('pt-PT')} · Pág ${i}/${n}`,105,290,{align:'center'});}
+}
+function exportPagPDF(){
+  const {jsPDF}=window.jspdf; const doc=new jsPDF();
+  pdfHeader(doc,'Pagamentos');
+  doc.autoTable({startY:24,head:[['Cliente','Descrição','Valor','Método','Data','Estado']],body:D.pagamentos.map(p=>{const c=D.clientes.find(x=>x.id===p.cliente_id);return[c?.nome||'—',p.descricao||'—',fmt(p.valor)+' €',p.metodo||'—',fmtData(p.data_pag),p.estado||'—'];}),headStyles:{fillColor:D.cfg.org_cor?D.cfg.org_cor.match(/\w\w/g).map(x=>parseInt(x,16)):[83,74,183],fontSize:8},bodyStyles:{fontSize:8},alternateRowStyles:{fillColor:[248,247,252]}});
+  pdfFooter(doc); doc.save('gestiok-pagamentos.pdf'); toast('PDF exportado!','ok');
+}
+function exportPresPDF(){
+  const {jsPDF}=window.jspdf; const doc=new jsPDF();
+  const sesId=document.getElementById('sel-ses')?.value;
+  const ses=D.sessoes.find(s=>s.id===sesId);
+  const grp=D.grupos.find(g=>g.id===ses?.grupo_id);
+  pdfHeader(doc,'Presenças');
+  if(ses)doc.text(`${grp?.nome||'—'} · ${ses.data} ${ses.hora}`,14,26);
+  const pres=D.presencas[sesId]||{};
+  const rows=Object.entries(pres).map(([cid,est])=>{const c=D.clientes.find(x=>x.id===cid);return[c?.nome||'—',est==='presente'?'✓ Presente':'✗ Falta'];});
+  doc.autoTable({startY:32,head:[['Cliente','Presença']],body:rows,headStyles:{fillColor:[83,74,183],fontSize:9},bodyStyles:{fontSize:9}});
+  pdfFooter(doc); doc.save('gestiok-presencas.pdf'); toast('PDF exportado!','ok');
+}
+
+// ════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════
+async function init(){
+  await loadConfig();
+  // Carregar professores antes do login (para o select)
+  const {data:profs}=await sb.from('professores').select('*').order('nome');
+  D.professores=profs||[];
+}
+init();
+</script>
+</body>
+</html>
