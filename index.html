@@ -404,7 +404,21 @@ tr:hover td{background:var(--s2)}
                   <div class="cor-prev" id="cfg-cor-prev" style="background:#534AB7"></div>
                 </div>
               </div>
-              <div class="fg"><label class="fl">URL do logótipo</label><input class="fi" id="cfg-logo" placeholder="https://..."></div>
+              <div class="fg">
+                <label class="fl">Logótipo</label>
+                <div id="logo-preview-wrap" style="display:none;margin-bottom:8px">
+                  <img id="logo-preview-img" src="" alt="Logo" style="width:60px;height:60px;border-radius:10px;object-fit:cover;border:1px solid var(--bd2)">
+                  <button class="btn btns btnd" style="margin-left:8px;vertical-align:top" onclick="removerLogo()">Remover</button>
+                </div>
+                <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:8px 14px;border:1.5px dashed var(--bd2);border-radius:var(--r);font-size:13px;color:var(--t2);width:100%;justify-content:center" id="logo-upload-label">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span id="logo-upload-txt">Escolher ficheiro ou foto</span>
+                </label>
+                <input type="file" id="cfg-logo-file" accept="image/*" style="display:none" onchange="uploadLogo(this)">
+                <script>document.getElementById('logo-upload-label').onclick=()=>document.getElementById('cfg-logo-file').click();</script>
+                <input type="hidden" id="cfg-logo">
+              </div>
+              <div class="fg"><label class="fl">Email para notificações de inscrição</label><input class="fi" id="cfg-notif-email" type="email" placeholder="o-teu@email.com"></div>
               <button class="btn btnp" style="width:100%;margin-top:4px" onclick="guardarConfig()">Guardar configurações</button>
             </div>
             <div class="card">
@@ -673,6 +687,12 @@ function aplicarBranding(){
   document.getElementById('cfg-cor').value=cor;
   document.getElementById('cfg-cor-prev').style.background=cor;
   document.getElementById('cfg-logo').value=logo;
+  document.getElementById('cfg-notif-email').value=c.notif_email||'';
+  if(logo){
+    document.getElementById('logo-preview-img').src=logo;
+    document.getElementById('logo-preview-wrap').style.display='block';
+    document.getElementById('logo-upload-txt').textContent='Alterar logótipo';
+  }
 }
 document.getElementById('cfg-cor').addEventListener('input',function(){
   document.getElementById('cfg-cor-prev').style.background=this.value;
@@ -685,6 +705,7 @@ async function guardarConfig(){
     org_tel:document.getElementById('cfg-tel').value.trim(),
     org_cor:document.getElementById('cfg-cor').value,
     org_logo:document.getElementById('cfg-logo').value.trim(),
+    notif_email:document.getElementById('cfg-notif-email').value.trim(),
   };
   for(const [k,v] of Object.entries(vals)){
     await sb.from('config').upsert({key:k,value:v});
@@ -1389,6 +1410,45 @@ function exportPresPDF(){
   const rows=Object.entries(pres).map(([cid,est])=>{const c=D.clientes.find(x=>x.id===cid);return[c?.nome||'—',est==='presente'?'✓ Presente':'✗ Falta'];});
   doc.autoTable({startY:32,head:[['Cliente','Presença']],body:rows,headStyles:{fillColor:[83,74,183],fontSize:9},bodyStyles:{fontSize:9}});
   pdfFooter(doc); doc.save('gestiok-presencas.pdf'); toast('PDF exportado!','ok');
+}
+
+// ════════════════════════════════════════════════════════
+// UPLOAD DE LOGÓTIPO
+// ════════════════════════════════════════════════════════
+async function uploadLogo(input){
+  const file=input.files[0];
+  if(!file)return;
+  const maxMB=2;
+  if(file.size>maxMB*1024*1024){toast('Ficheiro demasiado grande (máx 2MB)','err');return;}
+  document.getElementById('logo-upload-txt').textContent='A carregar...';
+  // Garantir bucket público 'logos' existe (cria se não existir)
+  const nomeFile='logo_'+Date.now()+'.'+file.name.split('.').pop();
+  const {data,error}=await sb.storage.from('logos').upload(nomeFile,file,{upsert:true,cacheControl:'3600'});
+  if(error){
+    // Se bucket não existe, tentar criar
+    if(error.message&&error.message.includes('Bucket not found')){
+      await sb.storage.createBucket('logos',{public:true});
+      const r2=await sb.storage.from('logos').upload(nomeFile,file,{upsert:true});
+      if(r2.error){toast('Erro no upload: '+r2.error.message,'err');document.getElementById('logo-upload-txt').textContent='Escolher ficheiro ou foto';return;}
+    } else {
+      toast('Erro no upload: '+error.message,'err');
+      document.getElementById('logo-upload-txt').textContent='Escolher ficheiro ou foto';
+      return;
+    }
+  }
+  const {data:urlData}=sb.storage.from('logos').getPublicUrl(nomeFile);
+  const url=urlData.publicUrl;
+  document.getElementById('cfg-logo').value=url;
+  document.getElementById('logo-preview-img').src=url;
+  document.getElementById('logo-preview-wrap').style.display='block';
+  document.getElementById('logo-upload-txt').textContent='Alterar logótipo';
+  toast('Logótipo carregado! Clica em "Guardar configurações".','ok');
+}
+function removerLogo(){
+  document.getElementById('cfg-logo').value='';
+  document.getElementById('logo-preview-wrap').style.display='none';
+  document.getElementById('logo-upload-txt').textContent='Escolher ficheiro ou foto';
+  document.getElementById('cfg-logo-file').value='';
 }
 
 // ════════════════════════════════════════════════════════
