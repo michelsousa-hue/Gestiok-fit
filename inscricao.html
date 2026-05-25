@@ -250,8 +250,9 @@ async function submeter(){
 
     // Buscar email de notificação guardado nas configs
     try{
-      const {data:cfgData}=await sb.from('config').select('value').eq('key','notif_email').single();
-      const emailDestino=cfgData?.value||'';
+      const {data:cfgData}=await sb.from('config').select('key,value').in('key',['notif_email','org_email']);
+      const cfgMap={};(cfgData||[]).forEach(r=>cfgMap[r.key]=r.value);
+      const emailDestino=cfgMap['notif_email']||cfgMap['org_email']||'';
       if(emailDestino){
         const grupo=grupoSelId?document.querySelector('.grupo-card.sel .grupo-nome')?.textContent||'—':'—';
         await emailjs.send(EJS_SERVICE, EJS_TEMPLATE, {
