@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Inscrição Online</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F3F4F6;min-height:100vh}
@@ -139,6 +140,12 @@ const SUPABASE_URL = 'https://rfjfcdlduguyipcghjjy.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmamZjZGxkdWd1eWlwY2doamp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NDUwMDMsImV4cCI6MjA5NTMyMTAwM30.eddH6ap18wIK_P0C9s2tYpQh4Z3uYrWARvgEbqywUSU';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// EmailJS
+const EJS_PUBLIC  = 'Uc8lOc6vrLls4050h';
+const EJS_SERVICE = 'service_8d19fmo';
+const EJS_TEMPLATE= 'template_d4ytux7';
+emailjs.init(EJS_PUBLIC);
+
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2); }
 
 // Grupo selecionado via URL ou clique
@@ -240,6 +247,31 @@ async function submeter(){
   try{
     const {error}=await sb.from('inscricoes').insert(record);
     if(error)throw error;
+
+    // Buscar email de notificação guardado nas configs
+    try{
+      const {data:cfgData}=await sb.from('config').select('value').eq('key','notif_email').single();
+      const emailDestino=cfgData?.value||'';
+      if(emailDestino){
+        const grupo=grupoSelId?document.querySelector('.grupo-card.sel .grupo-nome')?.textContent||'—':'—';
+        await emailjs.send(EJS_SERVICE, EJS_TEMPLATE, {
+          to_email:   emailDestino,
+          from_name:  'GestiOK Pilates',
+          subject:    '🆕 Nova inscrição — '+record.nome,
+          nome:       record.nome,
+          telemovel:  record.telemovel||'—',
+          email:      record.email||'—',
+          tipo_aula:  record.tipo_aula||'—',
+          grupo:      grupo,
+          obs:        record.obs||'—',
+          data:       new Date().toLocaleDateString('pt-PT'),
+          reply_to:   record.email||emailDestino,
+        });
+      }
+    }catch(eErr){
+      console.warn('Email de notificação não enviado:',eErr);
+    }
+
     document.getElementById('form-wrap').style.display='none';
     document.getElementById('success').style.display='block';
     window.scrollTo(0,0);
