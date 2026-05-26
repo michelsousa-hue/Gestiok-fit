@@ -326,7 +326,7 @@ tr:hover td{background:var(--s2)}
       <div id="p-grupos" class="page">
         <div class="card">
           <div class="ch"><div class="ct">Grupos / Aulas</div><button class="btn btnp btns" onclick="abrGrupo()">+ Novo grupo</button></div>
-          <div class="tw"><table><thead><tr><th>Nome</th><th>Modalidade</th><th>Tipo</th><th>Vagas</th><th>Estado</th><th>Ações</th></tr></thead><tbody id="tb-grp"></tbody></table></div>
+          <div class="tw"><table><thead><tr><th>Nome / Horário</th><th>Modalidade / Prof.</th><th>Inscritos</th><th>Estado</th><th>Preço</th><th>Ativo</th><th>Ações</th></tr></thead><tbody id="tb-grp"></tbody></table></div>
         </div>
       </div>
 
@@ -404,21 +404,7 @@ tr:hover td{background:var(--s2)}
                   <div class="cor-prev" id="cfg-cor-prev" style="background:#534AB7"></div>
                 </div>
               </div>
-              <div class="fg">
-                <label class="fl">Logótipo</label>
-                <div id="logo-preview-wrap" style="display:none;margin-bottom:8px">
-                  <img id="logo-preview-img" src="" alt="Logo" style="width:60px;height:60px;border-radius:10px;object-fit:cover;border:1px solid var(--bd2)">
-                  <button class="btn btns btnd" style="margin-left:8px;vertical-align:top" onclick="removerLogo()">Remover</button>
-                </div>
-                <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:8px 14px;border:1.5px dashed var(--bd2);border-radius:var(--r);font-size:13px;color:var(--t2);width:100%;justify-content:center" id="logo-upload-label">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  <span id="logo-upload-txt">Escolher ficheiro ou foto</span>
-                </label>
-                <input type="file" id="cfg-logo-file" accept="image/*" style="display:none" onchange="uploadLogo(this)">
-                <script>document.getElementById('logo-upload-label').onclick=()=>document.getElementById('cfg-logo-file').click();</script>
-                <input type="hidden" id="cfg-logo">
-              </div>
-              <div class="fg"><label class="fl">Email para notificações de inscrição</label><input class="fi" id="cfg-notif-email" type="email" placeholder="o-teu@email.com"></div>
+              <div class="fg"><label class="fl">URL do logótipo</label><input class="fi" id="cfg-logo" placeholder="https://..."></div>
               <button class="btn btnp" style="width:100%;margin-top:4px" onclick="guardarConfig()">Guardar configurações</button>
             </div>
             <div class="card">
@@ -492,11 +478,27 @@ tr:hover td{background:var(--s2)}
     <div class="mh"><div class="mt" id="m-grp-title">Novo grupo</div><button class="xbtn" onclick="fM('m-grupo')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <input type="hidden" id="f-grp-id">
     <div class="fgrid">
-      <div class="fg fcol"><label class="fl">Nome *</label><input class="fi" id="f-grp-nome" placeholder="Pilates Matinal, Yoga Adultos..."></div>
+      <div class="fg fcol"><label class="fl">Nome *</label><input class="fi" id="f-grp-nome" placeholder="Pilates Ter/Qui 19:40..."></div>
       <div class="fg"><label class="fl">Modalidade *</label><input class="fi" id="f-grp-modal" placeholder="Pilates, Yoga, Funcional..."></div>
-      <div class="fg"><label class="fl">Tipo *</label><select class="fs" id="f-grp-tipo"><option value="individual">Individual (1 pessoa)</option><option value="pequeno">Grupo pequeno (≤3)</option><option value="medio">Grupo médio (≤6)</option><option value="grande">Grupo grande (≤10)</option></select></div>
-      <div class="fg"><label class="fl">Vagas máximas</label><input class="fi" id="f-grp-vagas" type="number" value="6" min="1" max="30"></div>
+      <div class="fg"><label class="fl">Professor</label><select class="fs" id="f-grp-prof"><option value="">— Sem professor —</option></select></div>
+      <div class="fg"><label class="fl">Hora *</label><input class="fi" id="f-grp-hora" type="time" value="09:00"></div>
+      <div class="fg fcol"><label class="fl">Dias da semana</label>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;font-weight:400"><input type="checkbox" class="dia-check" value="Seg"> Seg</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;font-weight:400"><input type="checkbox" class="dia-check" value="Ter"> Ter</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;font-weight:400"><input type="checkbox" class="dia-check" value="Qua"> Qua</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;font-weight:400"><input type="checkbox" class="dia-check" value="Qui"> Qui</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;font-weight:400"><input type="checkbox" class="dia-check" value="Sex"> Sex</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;font-weight:400"><input type="checkbox" class="dia-check" value="Sab"> Sáb</label>
+        </div>
+      </div>
+      <div class="fg"><label class="fl">Vagas máximas</label><input class="fi" id="f-grp-vagas" type="number" value="10" min="1" max="30"></div>
+      <div class="fg"><label class="fl">Mínimo para abrir turma</label><input class="fi" id="f-grp-min" type="number" value="6" min="1" max="30"></div>
+      <div class="fg"><label class="fl">Preço mensal (€)</label><input class="fi" id="f-grp-preco" type="number" step="0.01" placeholder="40.00"></div>
+      <div class="fg"><label class="fl">Frequência</label><select class="fs" id="f-grp-freq"><option value="ambas">1x ou 2x por semana</option><option value="1x">Apenas 1x por semana</option><option value="2x">Apenas 2x por semana</option></select></div>
+      <div class="fg"><label class="fl">Tipo</label><select class="fs" id="f-grp-tipo"><option value="individual">Individual (1 pessoa)</option><option value="pequeno">Grupo pequeno (≤3)</option><option value="medio">Grupo médio (≤6)</option><option value="grande">Grupo grande (≤10)</option></select></div>
       <div class="fg"><label class="fl">Cor</label><input type="color" class="fi" id="f-grp-cor" value="#534AB7" style="height:38px;padding:2px;cursor:pointer"></div>
+      <div class="fg"><label class="fl">Aula experimental</label><select class="fs" id="f-grp-exp"><option value="true">Sim</option><option value="false">Não</option></select></div>
       <div class="fg"><label class="fl">Estado</label><select class="fs" id="f-grp-ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
       <div class="fg fcol"><label class="fl">Descrição</label><input class="fi" id="f-grp-desc" placeholder="Breve descrição do grupo..."></div>
     </div>
@@ -687,12 +689,6 @@ function aplicarBranding(){
   document.getElementById('cfg-cor').value=cor;
   document.getElementById('cfg-cor-prev').style.background=cor;
   document.getElementById('cfg-logo').value=logo;
-  document.getElementById('cfg-notif-email').value=c.notif_email||'';
-  if(logo){
-    document.getElementById('logo-preview-img').src=logo;
-    document.getElementById('logo-preview-wrap').style.display='block';
-    document.getElementById('logo-upload-txt').textContent='Alterar logótipo';
-  }
 }
 document.getElementById('cfg-cor').addEventListener('input',function(){
   document.getElementById('cfg-cor-prev').style.background=this.value;
@@ -705,7 +701,6 @@ async function guardarConfig(){
     org_tel:document.getElementById('cfg-tel').value.trim(),
     org_cor:document.getElementById('cfg-cor').value,
     org_logo:document.getElementById('cfg-logo').value.trim(),
-    notif_email:document.getElementById('cfg-notif-email').value.trim(),
   };
   for(const [k,v] of Object.entries(vals)){
     await sb.from('config').upsert({key:k,value:v});
@@ -1009,20 +1004,50 @@ function renderClientes(){
 // GRUPOS
 // ════════════════════════════════════════════════════════
 function abrGrupo(g=null){
+  // Popular select de professores
+  const selP=document.getElementById('f-grp-prof');
+  if(selP)selP.innerHTML='<option value="">— Sem professor —</option>'+D.professores.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
   document.getElementById('f-grp-id').value=g?.id||'';
   document.getElementById('f-grp-nome').value=g?.nome||'';
   document.getElementById('f-grp-modal').value=g?.modalidade||'';
+  document.getElementById('f-grp-prof').value=g?.professor_id||'';
+  document.getElementById('f-grp-hora').value=g?.hora||'09:00';
   document.getElementById('f-grp-tipo').value=g?.tipo||'medio';
-  document.getElementById('f-grp-vagas').value=g?.vagas_max||6;
+  document.getElementById('f-grp-vagas').value=g?.vagas_max||10;
+  document.getElementById('f-grp-min').value=g?.minimo||6;
+  document.getElementById('f-grp-preco').value=g?.preco_mensal||'';
+  document.getElementById('f-grp-freq').value=g?.frequencia||'ambas';
   document.getElementById('f-grp-cor').value=g?.cor||'#534AB7';
+  document.getElementById('f-grp-exp').value=g?.aula_experimental===false?'false':'true';
   document.getElementById('f-grp-ativo').value=g?.ativo===false?'false':'true';
   document.getElementById('f-grp-desc').value=g?.descricao||'';
+  // Dias da semana
+  const diasSel=(g?.dias_semana||'').split(',').map(d=>d.trim());
+  document.querySelectorAll('.dia-check').forEach(cb=>{
+    cb.checked=diasSel.includes(cb.value);
+  });
   document.getElementById('m-grp-title').textContent=g?'Editar grupo':'Novo grupo';
   oM('m-grupo');
 }
 async function guardarGrupo(){
   const id=document.getElementById('f-grp-id').value;
-  const d={nome:document.getElementById('f-grp-nome').value.trim(),modalidade:document.getElementById('f-grp-modal').value.trim(),tipo:document.getElementById('f-grp-tipo').value,vagas_max:parseInt(document.getElementById('f-grp-vagas').value)||6,cor:document.getElementById('f-grp-cor').value,ativo:document.getElementById('f-grp-ativo').value==='true',descricao:document.getElementById('f-grp-desc').value.trim()||null};
+  const diasSel=Array.from(document.querySelectorAll('.dia-check:checked')).map(cb=>cb.value);
+  const d={
+    nome:document.getElementById('f-grp-nome').value.trim(),
+    modalidade:document.getElementById('f-grp-modal').value.trim(),
+    professor_id:document.getElementById('f-grp-prof').value||null,
+    hora:document.getElementById('f-grp-hora').value||null,
+    dias_semana:diasSel.join(','),
+    tipo:document.getElementById('f-grp-tipo').value,
+    vagas_max:parseInt(document.getElementById('f-grp-vagas').value)||10,
+    minimo:parseInt(document.getElementById('f-grp-min').value)||6,
+    preco_mensal:parseFloat(document.getElementById('f-grp-preco').value)||0,
+    frequencia:document.getElementById('f-grp-freq').value,
+    cor:document.getElementById('f-grp-cor').value,
+    aula_experimental:document.getElementById('f-grp-exp').value==='true',
+    ativo:document.getElementById('f-grp-ativo').value==='true',
+    descricao:document.getElementById('f-grp-desc').value.trim()||null
+  };
   if(!d.nome||!d.modalidade){toast('Preenche nome e modalidade','err');return;}
   let err;
   if(id){({error:err}=await sb.from('grupos').update(d).eq('id',id));}
@@ -1034,18 +1059,29 @@ async function guardarGrupo(){
 async function eliminarGrupo(id){if(!confirm('Eliminar grupo?'))return;await sb.from('grupos').delete().eq('id',id);toast('Eliminado','ok');await carregarGrupos();}
 function renderGrupos(){
   const tb=document.getElementById('tb-grp');if(!tb)return;
-  const tipoLabel={individual:'Individual',pequeno:'Grupo pequeno',medio:'Grupo médio',grande:'Grupo grande'};
-  tb.innerHTML=D.grupos.length?D.grupos.map(g=>`<tr>
-    <td><div class="tdn"><div style="width:10px;height:10px;border-radius:3px;background:${g.cor||'#534AB7'};flex-shrink:0"></div>${g.nome}</div></td>
-    <td style="font-size:12px">${g.modalidade||'—'}</td>
-    <td><span class="badge bp">${tipoLabel[g.tipo]||g.tipo}</span></td>
-    <td style="font-family:var(--m);font-size:12px">${g.vagas_max}</td>
-    <td>${g.ativo?'<span class="badge bg">Ativo</span>':'<span class="badge bgr">Inativo</span>'}</td>
-    <td><div style="display:flex;gap:4px">
-      <button class="btn btns" onclick='abrGrupo(${JSON.stringify(g).replace(/'/g,"&#39;")})'>✏️</button>
-      <button class="btn btns btnd" onclick="eliminarGrupo('${g.id}')">🗑️</button>
-    </div></td>
-  </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><b>Sem grupos</b></div></td></tr>`;
+  tb.innerHTML=D.grupos.length?D.grupos.map(g=>{
+    const prof=D.professores.find(p=>p.id===g.professor_id);
+    const inscritos=D.inscricoes_grupo_count?.[g.id]||0;
+    const pct=Math.round((inscritos/g.vagas_max)*100);
+    const faltamAbrir=Math.max(0,(g.minimo||6)-inscritos);
+    const statusHtml=inscritos>=(g.vagas_max||10)
+      ?'<span class="badge br">Lotado</span>'
+      :faltamAbrir>0
+        ?`<span class="badge ba">Faltam ${faltamAbrir} p/ abrir</span>`
+        :'<span class="badge bg">Vagas disponíveis</span>';
+    return`<tr>
+      <td><div class="tdn"><div style="width:10px;height:10px;border-radius:3px;background:${g.cor||'#534AB7'};flex-shrink:0"></div><div><div>${g.nome}</div><div style="font-size:10px;color:var(--t3)">${g.dias_semana||'—'} · ${g.hora||'—'}</div></div></div></td>
+      <td style="font-size:12px">${g.modalidade||'—'}<br><span style="color:var(--t3);font-size:10px">${prof?.nome||'—'}</span></td>
+      <td><div style="font-size:12px;font-family:var(--m)">${inscritos}/${g.vagas_max||10}</div><div style="height:4px;background:var(--bd);border-radius:2px;width:60px;margin-top:3px"><div style="height:100%;border-radius:2px;background:var(--P);width:${pct}%"></div></div></td>
+      <td>${statusHtml}</td>
+      <td style="font-size:12px;font-family:var(--m)">${g.preco_mensal?g.preco_mensal.toFixed(2)+' €':'—'}</td>
+      <td>${g.ativo?'<span class="badge bg">Ativo</span>':'<span class="badge bgr">Inativo</span>'}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btns" onclick='abrGrupo(${JSON.stringify(g).replace(/'/g,"&#39;")})'>✏️</button>
+        <button class="btn btns btnd" onclick="eliminarGrupo('${g.id}')">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="empty"><b>Sem grupos</b></div></td></tr>`;
 }
 
 // ════════════════════════════════════════════════════════
@@ -1410,45 +1446,6 @@ function exportPresPDF(){
   const rows=Object.entries(pres).map(([cid,est])=>{const c=D.clientes.find(x=>x.id===cid);return[c?.nome||'—',est==='presente'?'✓ Presente':'✗ Falta'];});
   doc.autoTable({startY:32,head:[['Cliente','Presença']],body:rows,headStyles:{fillColor:[83,74,183],fontSize:9},bodyStyles:{fontSize:9}});
   pdfFooter(doc); doc.save('gestiok-presencas.pdf'); toast('PDF exportado!','ok');
-}
-
-// ════════════════════════════════════════════════════════
-// UPLOAD DE LOGÓTIPO
-// ════════════════════════════════════════════════════════
-async function uploadLogo(input){
-  const file=input.files[0];
-  if(!file)return;
-  const maxMB=2;
-  if(file.size>maxMB*1024*1024){toast('Ficheiro demasiado grande (máx 2MB)','err');return;}
-  document.getElementById('logo-upload-txt').textContent='A carregar...';
-  // Garantir bucket público 'logos' existe (cria se não existir)
-  const nomeFile='logo_'+Date.now()+'.'+file.name.split('.').pop();
-  const {data,error}=await sb.storage.from('logos').upload(nomeFile,file,{upsert:true,cacheControl:'3600'});
-  if(error){
-    // Se bucket não existe, tentar criar
-    if(error.message&&error.message.includes('Bucket not found')){
-      await sb.storage.createBucket('logos',{public:true});
-      const r2=await sb.storage.from('logos').upload(nomeFile,file,{upsert:true});
-      if(r2.error){toast('Erro no upload: '+r2.error.message,'err');document.getElementById('logo-upload-txt').textContent='Escolher ficheiro ou foto';return;}
-    } else {
-      toast('Erro no upload: '+error.message,'err');
-      document.getElementById('logo-upload-txt').textContent='Escolher ficheiro ou foto';
-      return;
-    }
-  }
-  const {data:urlData}=sb.storage.from('logos').getPublicUrl(nomeFile);
-  const url=urlData.publicUrl;
-  document.getElementById('cfg-logo').value=url;
-  document.getElementById('logo-preview-img').src=url;
-  document.getElementById('logo-preview-wrap').style.display='block';
-  document.getElementById('logo-upload-txt').textContent='Alterar logótipo';
-  toast('Logótipo carregado! Clica em "Guardar configurações".','ok');
-}
-function removerLogo(){
-  document.getElementById('cfg-logo').value='';
-  document.getElementById('logo-preview-wrap').style.display='none';
-  document.getElementById('logo-upload-txt').textContent='Escolher ficheiro ou foto';
-  document.getElementById('cfg-logo-file').value='';
 }
 
 // ════════════════════════════════════════════════════════
