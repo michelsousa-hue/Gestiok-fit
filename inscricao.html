@@ -164,9 +164,6 @@ let freqSel  = null;      // '1x' ou '2x'
 let grupos   = [];        // todos os grupos activos
 let inscCount = {};       // contagem de inscritos por grupo
 
-// Grupo via URL ?grupo=ID
-const grupoUrlId = new URLSearchParams(window.location.search).get('grupo');
-
 async function init(){
   try{
     // Branding
@@ -194,10 +191,7 @@ async function init(){
     inscCount={};
     (inscData||[]).forEach(i=>{inscCount[i.grupo_id]=(inscCount[i.grupo_id]||0)+1;});
 
-    // Filtrar por URL se vier link directo
-    const grpsParaMostrar=grupoUrlId?grupos.filter(g=>g.id===grupoUrlId):grupos;
-
-    renderTurmas(grpsParaMostrar,profsMap);
+    renderTurmas(grupos,profsMap);
   }catch(e){
     console.warn('Erro:',e);
   }finally{
