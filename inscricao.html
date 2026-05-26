@@ -239,8 +239,14 @@ function renderTurmas(grps,profsMap){
             <button class="freq-btn" data-grp="${g.id}" data-freq="2x" onclick="selFreq('${g.id}','2x',this)">2× por semana</button>
           </div>`;
 
-    const precoHtml=g.preco_mensal>0
-      ?`<div class="turma-preco">💶 ${parseFloat(g.preco_mensal).toFixed(2)} €/mês</div>`:'';
+    const preco1x=parseFloat(g.preco_mensal_1x||0);
+    const preco2x=parseFloat(g.preco_mensal_2x||0);
+    const precoHtml=(preco1x>0||preco2x>0)?`<div class="turma-preco" id="preco-${g.id}">
+      💶 ${preco1x>0&&preco2x>0
+        ?`<span id="p1x-${g.id}">${preco1x.toFixed(2)} €/mês (1×)</span> &nbsp;·&nbsp; <span id="p2x-${g.id}">${preco2x.toFixed(2)} €/mês (2×)</span>`
+        :preco2x>0?`${preco2x.toFixed(2)} €/mês`:preco1x>0?`${preco1x.toFixed(2)} €/mês`:''
+      }
+    </div>`:'';
 
     const expHtml=g.aula_experimental!==false
       ?'<div class="turma-exp">🎁 Inclui aula experimental gratuita</div>':'';
