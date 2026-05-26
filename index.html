@@ -494,7 +494,8 @@ tr:hover td{background:var(--s2)}
       </div>
       <div class="fg"><label class="fl">Vagas máximas</label><input class="fi" id="f-grp-vagas" type="number" value="10" min="1" max="30"></div>
       <div class="fg"><label class="fl">Mínimo para abrir turma</label><input class="fi" id="f-grp-min" type="number" value="6" min="1" max="30"></div>
-      <div class="fg"><label class="fl">Preço mensal (€)</label><input class="fi" id="f-grp-preco" type="number" step="0.01" placeholder="40.00"></div>
+      <div class="fg"><label class="fl">Preço 1× por semana (€)</label><input class="fi" id="f-grp-preco1x" type="number" step="0.01" placeholder="15.00"></div>
+      <div class="fg"><label class="fl">Preço 2× por semana (€)</label><input class="fi" id="f-grp-preco2x" type="number" step="0.01" placeholder="25.00"></div>
       <div class="fg"><label class="fl">Frequência</label><select class="fs" id="f-grp-freq"><option value="ambas">1x ou 2x por semana</option><option value="1x">Apenas 1x por semana</option><option value="2x">Apenas 2x por semana</option></select></div>
       <div class="fg"><label class="fl">Tipo</label><select class="fs" id="f-grp-tipo"><option value="individual">Individual (1 pessoa)</option><option value="pequeno">Grupo pequeno (≤3)</option><option value="medio">Grupo médio (≤6)</option><option value="grande">Grupo grande (≤10)</option></select></div>
       <div class="fg"><label class="fl">Cor</label><input type="color" class="fi" id="f-grp-cor" value="#534AB7" style="height:38px;padding:2px;cursor:pointer"></div>
@@ -1015,7 +1016,8 @@ function abrGrupo(g=null){
   document.getElementById('f-grp-tipo').value=g?.tipo||'medio';
   document.getElementById('f-grp-vagas').value=g?.vagas_max||10;
   document.getElementById('f-grp-min').value=g?.minimo||6;
-  document.getElementById('f-grp-preco').value=g?.preco_mensal||'';
+  document.getElementById('f-grp-preco1x').value=g?.preco_mensal_1x||'';
+  document.getElementById('f-grp-preco2x').value=g?.preco_mensal_2x||'';
   document.getElementById('f-grp-freq').value=g?.frequencia||'ambas';
   document.getElementById('f-grp-cor').value=g?.cor||'#534AB7';
   document.getElementById('f-grp-exp').value=g?.aula_experimental===false?'false':'true';
@@ -1041,7 +1043,8 @@ async function guardarGrupo(){
     tipo:document.getElementById('f-grp-tipo').value,
     vagas_max:parseInt(document.getElementById('f-grp-vagas').value)||10,
     minimo:parseInt(document.getElementById('f-grp-min').value)||6,
-    preco_mensal:parseFloat(document.getElementById('f-grp-preco').value)||0,
+    preco_mensal_1x:parseFloat(document.getElementById('f-grp-preco1x').value)||0,
+    preco_mensal_2x:parseFloat(document.getElementById('f-grp-preco2x').value)||0,
     frequencia:document.getElementById('f-grp-freq').value,
     cor:document.getElementById('f-grp-cor').value,
     aula_experimental:document.getElementById('f-grp-exp').value==='true',
