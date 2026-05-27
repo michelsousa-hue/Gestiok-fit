@@ -1389,9 +1389,52 @@ function renderComunicados(){
 // ════════════════════════════════════════════════════════
 async function aprovarInsc(id){
   const i=D.inscricoes.find(x=>x.id===id);if(!i)return;
-  await sb.from('inscricoes').update({estado:'Aprovada',processado_em:new Date().toISOString()}).eq('id',id);
-  toast('Inscrição aprovada!','ok');
-  await carregarInscricoes(); atualizarBadges(); renderDash();
+
+  // 1. Criar ou encontrar cliente
+  let clienteId=null;
+  const {data:cliEx}=await sb.from('clientes').select('id').eq('email',i.email||'__noemail__').single();
+  if(cliEx){
+    clienteId=cliEx.id;
+    // Actualizar estado para ativo
+    await sb.from('clientes').update({estado:'ativo'}).eq('id',clienteId);
+  } else {
+    const novoCli={
+      id:uid(),
+      nome:i.nome,
+      email:i.email||null,
+      telemovel:i.telemovel||null,
+      estado:'ativo',
+      obs:i.obs||null,
+    };
+    const {data:cliNovo}=await sb.from('clientes').insert(novoCli).select().single();
+    clienteId=cliNovo?.id;
+  }
+
+  // 2. Inscrever na turma se tiver grupo_id
+  if(clienteId && i.grupo_id){
+    // Extrair dias do obs se disponível
+    const diasMatch=(i.obs||'').match(/Turmas:.*?\((.*?)\)/);
+    const diasStr=diasMatch?diasMatch[1]:'';
+    // Criar inscrição no grupo
+    await sb.from('inscricoes_grupo').upsert({
+      id:uid(),
+      cliente_id:clienteId,
+      grupo_id:i.grupo_id,
+      estado:'ativa',
+      dia_semana:diasStr||i.tipo_aula||null,
+      data_inicio:new Date().toISOString().slice(0,10),
+    });
+  }
+
+  // 3. Marcar inscrição como aprovada
+  await sb.from('inscricoes').update({
+    estado:'Aprovada',
+    processado_em:new Date().toISOString()
+  }).eq('id',id);
+
+  toast('Inscrição aprovada! Cliente criado e inscrito na turma.','ok');
+  await Promise.all([carregarInscricoes(),carregarClientes()]);
+  atualizarBadges(); renderDash();
 }
 async function rejeitarInsc(id){
   await sb.from('inscricoes').update({estado:'Rejeitada',processado_em:new Date().toISOString()}).eq('id',id);
