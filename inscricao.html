@@ -66,6 +66,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--cor,#534AB7)}
 .dia-sel-btn.sel{background:var(--cor,#534AB7);border-color:var(--cor,#534AB7);color:#fff}
 .dia-sel-btn.lotado-dia{opacity:.5;cursor:not-allowed;background:#F3F4F6}
 .dia-sel-btn{text-align:center;min-width:60px}
+.mod-btn{padding:14px 18px;border:2px solid #E5E7EB;border-radius:12px;background:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;color:#374151;transition:all .15s;text-align:center;min-width:120px;flex:1}
+.mod-btn:hover{border-color:var(--cor,#534AB7);color:var(--cor,#534AB7);background:#FAFAFE}
+.mod-btn.sel{border-color:var(--cor,#534AB7);background:var(--cor,#534AB7);color:#fff;box-shadow:0 4px 12px rgba(83,74,183,.25)}
+.mod-icone{font-size:28px;display:block;margin-bottom:6px}
+.mod-nome{font-size:13px}
+.mod-count{font-size:11px;opacity:.75;margin-top:2px}
 .resumo-box{background:#F8F7FC;border:1.5px solid var(--cor,#534AB7);border-radius:12px;padding:16px;margin-bottom:16px}
 </style>
 </head>
@@ -82,8 +88,14 @@ input:focus,select:focus,textarea:focus{border-color:var(--cor,#534AB7)}
   <div id="form-wrap">
     <p class="req-note">* Campos obrigatórios</p>
 
+    <!-- MODALIDADE -->
+    <div class="card">
+      <div class="ctitle">Que serviço procuras?</div>
+      <div id="lista-modalidades" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+    </div>
+
     <!-- TURMAS -->
-    <div class="card" id="card-turmas">
+    <div class="card" id="card-turmas" style="display:none">
       <div class="ctitle">Escolhe a tua turma</div>
       <div id="lista-turmas"><div style="color:#9CA3AF;font-size:13px">A carregar turmas...</div></div>
     </div>
@@ -170,6 +182,8 @@ let grupoSel = null;      // grupo seleccionado
 let freqSel  = null;      // '1x' ou '2x'
 let grupos   = [];        // todos os grupos activos
 let inscCount = {};       // contagem de inscritos por grupo
+let modalidadeSel = null; // modalidade seleccionada
+let profsMapGlobal = {};  // professores para usar em renderTurmas
 let vagasPorDia = {};     // vagas por grupo+dia
 
 async function init(){
@@ -194,6 +208,7 @@ async function init(){
     ]);
     grupos=grps||[];
     const profsMap={};(profs||[]).forEach(p=>profsMap[p.id]=p.nome);
+    profsMapGlobal={...profsMap};
 
     // Vagas por dia: {grupoId: {dia: {inscritos, vagas_max, minimo}}}
     vagasPorDia={};
@@ -202,12 +217,62 @@ async function init(){
       vagasPorDia[v.grupo_id][v.dia.trim()]={inscritos:parseInt(v.inscritos)||0,vagas_max:v.vagas_max,minimo:v.minimo};
     });
 
-    renderTurmas(grupos,profsMap);
+    renderModalidades();
   }catch(e){
     console.warn('Erro:',e);
   }finally{
     document.getElementById('loading').style.display='none';
   }
+}
+
+// Ícones por modalidade
+const MOD_ICONS = {
+  'pilates':'🧘','yoga':'🕉️','personal trainer':'💪',
+  'personal':'💪','pequenos grupos':'👥','grupo':'👥',
+  'funcional':'🏋️','natação':'🏊','dança':'💃',
+};
+function getModIcon(nome){
+  const n=(nome||'').toLowerCase();
+  for(const [k,v] of Object.entries(MOD_ICONS)){
+    if(n.includes(k)) return v;
+  }
+  return '🎯';
+}
+
+function renderModalidades(){
+  // Extrair modalidades únicas dos grupos
+  const mods=[...new Set(grupos.map(g=>g.modalidade).filter(Boolean))].sort();
+  const lista=document.getElementById('lista-modalidades');
+  if(!lista)return;
+  if(!mods.length){
+    lista.innerHTML='<p style="color:#9CA3AF;font-size:13px">Sem serviços disponíveis de momento.</p>';
+    return;
+  }
+  lista.innerHTML=mods.map(m=>{
+    const count=grupos.filter(g=>g.modalidade===m&&g.ativo).length;
+    return`<button class="mod-btn" id="mob-${btoa(m).replace(/=/g,'')}" onclick="selModalidade('${m.replace(/'/g,'\'')}',this)">
+      <span class="mod-icone">${getModIcon(m)}</span>
+      <div class="mod-nome">${m}</div>
+      <div class="mod-count">${count} turma${count!==1?'s':''}</div>
+    </button>`;
+  }).join('');
+}
+
+function selModalidade(mod, btn){
+  modalidadeSel=mod;
+  document.querySelectorAll('.mod-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  // Mostrar card de turmas
+  const cardTurmas=document.getElementById('card-turmas');
+  cardTurmas.style.display='block';
+  // Scroll suave para turmas
+  setTimeout(()=>cardTurmas.scrollIntoView({behavior:'smooth',block:'start'}),100);
+  // Filtrar turmas da modalidade
+  const grpsFiltrados=grupos.filter(g=>g.modalidade===mod);
+  renderTurmas(grpsFiltrados,profsMapGlobal);
+  // Reset selecções
+  selecoes={};
+  actualizarResumo();
 }
 
 function renderTurmas(grps,profsMap){
@@ -397,8 +462,9 @@ async function submeter(){
   const errEl=document.getElementById('err-global');
   errEl.style.display='none';
 
+  if(!modalidadeSel){errEl.textContent='Por favor escolhe um serviço.';errEl.style.display='block';window.scrollTo(0,0);return;}
   const ids=Object.keys(selecoes);
-  if(!ids.length){errEl.textContent='Por favor selecciona pelo menos uma turma.';errEl.style.display='block';window.scrollTo(0,200);return;}
+  if(!ids.length){errEl.textContent='Por favor selecciona pelo menos uma turma.';errEl.style.display='block';document.getElementById('card-turmas').scrollIntoView({behavior:'smooth'});return;}
   // Contar total de dias seleccionados (para calcular frequência)
   const totalDias=ids.reduce((s,id)=>s+(selecoes[id]?.dias?.length||0),0);
   // Verificar dias seleccionados
@@ -438,6 +504,7 @@ async function submeter(){
     grupo_id:grupoSel,
     tipo_aula:ids.length>=2?'2x/semana':'1x/semana',
     obs:[
+      'Serviço: '+modalidadeSel,
       'Turmas: '+turmasResumo,
       document.getElementById('f-obj').value.trim()?'Objectivos: '+document.getElementById('f-obj').value.trim():'',
       document.getElementById('f-lesoes').value.trim()?'Lesões: '+document.getElementById('f-lesoes').value.trim():'',
@@ -466,6 +533,7 @@ async function submeter(){
           email:      record.email||'—',
           tipo_aula:  freqSel?freqSel+'/semana':'—',
           grupo:      turmasResumo,
+          modalidade: modalidadeSel||'—',
           obs:        record.obs||'—',
           data:       new Date().toLocaleDateString('pt-PT'),
           reply_to:   record.email||emailDestino,
