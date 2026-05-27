@@ -841,6 +841,9 @@ async function guardarConfig(){
     org_tel:document.getElementById('cfg-tel').value.trim(),
     org_cor:document.getElementById('cfg-cor').value,
     org_logo:document.getElementById('cfg-logo').value.trim(),
+    notif_email:document.getElementById('cfg-notif-email').value.trim(),
+    parceiro_nome:document.getElementById('cfg-parceiro-nome').value.trim(),
+    parceiro_pct:document.getElementById('cfg-parceiro-pct').value.trim(),
   };
   for(const [k,v] of Object.entries(vals)){
     await sb.from('config').upsert({key:k,value:v});
@@ -1815,8 +1818,20 @@ function pdfHeader(doc,titulo){
   doc.setFillColor(...rgb); doc.rect(0,0,210,22,'F');
   const logo=D.cfg.org_logo||'';
   if(logo){
-    try{ doc.addImage(logo,'PNG',7,3,16,16); }
-    catch(e){ try{ doc.addImage(logo,'JPEG',7,3,16,16); }catch(e2){} }
+    try{
+      // Criar canvas para logótipo circular
+      const canvas=document.createElement('canvas');
+      canvas.width=128;canvas.height=128;
+      const ctx=canvas.getContext('2d');
+      const img=new Image();
+      img.src=logo;
+      ctx.beginPath();
+      ctx.arc(64,64,64,0,Math.PI*2);
+      ctx.clip();
+      ctx.drawImage(img,0,0,128,128);
+      const logoData=canvas.toDataURL('image/png');
+      doc.addImage(logoData,'PNG',7,3,16,16);
+    }catch(e){}
   }
   const xNome=logo?27:14;
   doc.setTextColor(255,255,255);
