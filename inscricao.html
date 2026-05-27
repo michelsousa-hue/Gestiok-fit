@@ -61,6 +61,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--cor,#534AB7)}
 .check-icon{position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;background:var(--cor,#534AB7);color:#fff;display:none;align-items:center;justify-content:center;font-size:13px}
 .turma-card.sel .check-icon{display:flex}
 :root{--cor:#534AB7}
+.dia-sel-btn{padding:6px 14px;border:1.5px solid #E5E7EB;border-radius:99px;background:#fff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;color:#374151;transition:all .15s}
+.dia-sel-btn:hover{border-color:var(--cor,#534AB7);color:var(--cor,#534AB7)}
+.dia-sel-btn.sel{background:var(--cor,#534AB7);border-color:var(--cor,#534AB7);color:#fff}
+.dia-sel-btn.lotado-dia{opacity:.5;cursor:not-allowed;background:#F3F4F6}
+.dia-sel-btn{text-align:center;min-width:60px}
+.resumo-box{background:#F8F7FC;border:1.5px solid var(--cor,#534AB7);border-radius:12px;padding:16px;margin-bottom:16px}
 </style>
 </head>
 <body>
@@ -132,6 +138,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--cor,#534AB7)}
       </div>
     </div>
 
+    <div id="resumo-selecao" class="resumo-box" style="display:none"></div>
     <p id="err-global" class="err-msg"></p>
     <button class="btn-sub" id="btn-sub" onclick="submeter()">📋 Submeter pedido de inscrição</button>
     <p style="font-size:11px;color:#9CA3AF;text-align:center;margin-top:10px">
@@ -163,6 +170,7 @@ let grupoSel = null;      // grupo seleccionado
 let freqSel  = null;      // '1x' ou '2x'
 let grupos   = [];        // todos os grupos activos
 let inscCount = {};       // contagem de inscritos por grupo
+let vagasPorDia = {};     // vagas por grupo+dia
 
 async function init(){
   try{
@@ -178,18 +186,21 @@ async function init(){
       if(c.org_logo){const img=document.getElementById('hlogo');img.src=c.org_logo;img.style.display='block';}
     }
 
-    // Carregar grupos activos + professores
-    const [{data:grps},{data:profs}]=await Promise.all([
+    // Carregar grupos, professores e vagas por dia
+    const [{data:grps},{data:profs},{data:vagasDia}]=await Promise.all([
       sb.from('grupos').select('*').eq('ativo',true).order('hora'),
-      sb.from('professores').select('id,nome')
+      sb.from('professores').select('id,nome'),
+      sb.from('vagas_por_dia').select('*')
     ]);
     grupos=grps||[];
     const profsMap={};(profs||[]).forEach(p=>profsMap[p.id]=p.nome);
 
-    // Contar inscritos por grupo
-    const {data:inscData}=await sb.from('inscricoes_grupo').select('grupo_id').eq('estado','ativa');
-    inscCount={};
-    (inscData||[]).forEach(i=>{inscCount[i.grupo_id]=(inscCount[i.grupo_id]||0)+1;});
+    // Vagas por dia: {grupoId: {dia: {inscritos, vagas_max, minimo}}}
+    vagasPorDia={};
+    (vagasDia||[]).forEach(v=>{
+      if(!vagasPorDia[v.grupo_id]) vagasPorDia[v.grupo_id]={};
+      vagasPorDia[v.grupo_id][v.dia.trim()]={inscritos:parseInt(v.inscritos)||0,vagas_max:v.vagas_max,minimo:v.minimo};
+    });
 
     renderTurmas(grupos,profsMap);
   }catch(e){
@@ -204,49 +215,58 @@ function renderTurmas(grps,profsMap){
   if(!grps.length){lista.innerHTML='<p style="color:#9CA3AF;font-size:13px">Sem turmas disponíveis de momento.</p>';return;}
 
   lista.innerHTML=grps.map(g=>{
-    const inscritos=inscCount[g.id]||0;
     const vagas=g.vagas_max||10;
     const minimo=g.minimo||6;
-    const lotado=inscritos>=vagas;
+    const prof=g.professor_id?profsMap[g.professor_id]||'—':'—';
+    // Calcular vagas por dia
+    const diasGrupo=(g.dias_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
+    const vagasDiaGrupo=vagasPorDia[g.id]||{};
+    // Total inscritos = máximo entre dias (pior caso)
+    const maxInscritos=diasGrupo.length>0?Math.max(...diasGrupo.map(d=>(vagasDiaGrupo[d]?.inscritos||0))):0;
+    const inscritos=maxInscritos;
+    const todosLotados=diasGrupo.length>0&&diasGrupo.every(d=>(vagasDiaGrupo[d]?.inscritos||0)>=vagas);
+    const lotado=todosLotados;
     const pct=Math.min(100,Math.round((inscritos/vagas)*100));
     const faltamLotar=vagas-inscritos;
     const faltamAbrir=Math.max(0,minimo-inscritos);
-    const prof=g.professor_id?profsMap[g.professor_id]||'—':'—';
-
-    // Cor da barra
     const barColor=lotado?'#A32D2D':pct>=80?'#854F0B':'#534AB7';
-
-    // Status badge
     const statusHtml=lotado
       ?'<span class="turma-status st-lotado">🔴 Lotado — Lista de espera</span>'
       :faltamAbrir>0
         ?`<span class="turma-status st-warn">⚠️ Faltam ${faltamAbrir} para abrir turma</span>`
-        :`<span class="turma-status st-ok">✅ ${faltamLotar} vaga${faltamLotar!==1?'s':''} disponível${faltamLotar!==1?'s':''}</span>`;
-
-    // Frequência
-    const freqHtml=g.frequencia==='1x'
-      ?'<div class="freq-opts"><div class="freq-btn sel" data-grp="'+g.id+'" data-freq="1x">1× por semana</div></div>'
-      :g.frequencia==='2x'
-        ?'<div class="freq-opts"><div class="freq-btn sel" data-grp="'+g.id+'" data-freq="2x">2× por semana</div></div>'
-        :`<div class="freq-opts">
-            <button class="freq-btn" data-grp="${g.id}" data-freq="1x" onclick="selFreq('${g.id}','1x',this)">1× por semana</button>
-            <button class="freq-btn" data-grp="${g.id}" data-freq="2x" onclick="selFreq('${g.id}','2x',this)">2× por semana</button>
-          </div>`;
-
+        :`<span class="turma-status st-ok">✅ Vagas disponíveis</span>`;
     const preco1x=parseFloat(g.preco_mensal_1x||0);
     const preco2x=parseFloat(g.preco_mensal_2x||0);
-    const precoHtml=(preco1x>0||preco2x>0)?`<div class="turma-preco" id="preco-${g.id}">
-      💶 ${preco1x>0&&preco2x>0
-        ?`<span id="p1x-${g.id}">${preco1x.toFixed(2)} €/mês (1×)</span> &nbsp;·&nbsp; <span id="p2x-${g.id}">${preco2x.toFixed(2)} €/mês (2×)</span>`
-        :preco2x>0?`${preco2x.toFixed(2)} €/mês`:preco1x>0?`${preco1x.toFixed(2)} €/mês`:''
-      }
+    const precoHtml=(preco1x>0||preco2x>0)?`<div class="turma-preco">
+      💶 ${preco1x>0?`1×/sem: <b>${preco1x.toFixed(2)}€</b>`:''}
+      ${preco1x>0&&preco2x>0?' &nbsp;·&nbsp; ':''}
+      ${preco2x>0?`2×/sem: <b>${preco2x.toFixed(2)}€</b>`:''}
     </div>`:'';
+    const expHtml=g.aula_experimental!==false?'<div class="turma-exp">🎁 Inclui aula experimental gratuita</div>':'';
 
-    const expHtml=g.aula_experimental!==false
-      ?'<div class="turma-exp">🎁 Inclui aula experimental gratuita</div>':'';
+    // Dias disponíveis com vagas por dia
+    const diasHtml=diasGrupo.length>0?`
+      <div style="margin-top:10px">
+        <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px">Qual dia preferes?</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${diasGrupo.map(d=>{
+            const vi=vagasDiaGrupo[d]?.inscritos||0;
+            const dLotado=vi>=vagas;
+            const dFaltamAbrir=Math.max(0,minimo-vi);
+            const dVagasLivre=vagas-vi;
+            let dInfo='';
+            if(dLotado) dInfo='<div style="font-size:10px;color:#A32D2D">Lotado</div>';
+            else if(dFaltamAbrir>0) dInfo=`<div style="font-size:10px;color:#854F0B">Faltam ${dFaltamAbrir}</div>`;
+            else dInfo=`<div style="font-size:10px;color:#3B6D11">${dVagasLivre} vaga${dVagasLivre!==1?'s':''}</div>`;
+            return`<button class="dia-sel-btn${dLotado?' lotado-dia':''}" data-grp="${g.id}" data-dia="${d}" ${dLotado?'disabled':''} onclick="selDia('${g.id}','${d}',this,event)">
+              <div>${d}</div>${dInfo}
+            </button>`;
+          }).join('')}
+        </div>
+      </div>`:'';
 
-    return`<div class="turma-card${lotado?' lotado':''}" id="tc-${g.id}" onclick="selTurma('${g.id}',${lotado})">
-      <div class="check-icon">✓</div>
+    return`<div class="turma-card${lotado?' lotado':''}" id="tc-${g.id}" onclick="toggleTurma('${g.id}',${lotado},event)">
+      <div class="check-icon" id="chk-${g.id}">✓</div>
       <div class="turma-top">
         <div>
           <div class="turma-nome">${g.nome}</div>
@@ -266,32 +286,98 @@ function renderTurmas(grps,profsMap){
         ${precoHtml}
         ${expHtml}
       </div>
-      ${!lotado?freqHtml:'<p style="font-size:12px;color:#9CA3AF;margin-top:8px">Podes entrar na lista de espera</p>'}
+      ${!lotado?diasHtml:'<p style="font-size:12px;color:#9CA3AF;margin-top:8px">Podes entrar na lista de espera</p>'}
     </div>`;
   }).join('');
+
+  // Actualizar resumo
+  actualizarResumo();
 }
 
-function selTurma(id, lotado){
-  // Se lotado, permitir entrar na lista de espera
-  grupoSel=id;
-  freqSel=null;
-  document.querySelectorAll('.turma-card').forEach(c=>c.classList.remove('sel'));
-  document.getElementById('tc-'+id).classList.add('sel');
-  // Reset freq
-  document.querySelectorAll('.freq-btn').forEach(b=>b.classList.remove('sel'));
-  // Se frequência fixa, definir automaticamente
-  const g=grupos.find(x=>x.id===id);
-  if(g?.frequencia==='1x'){freqSel='1x';}
-  else if(g?.frequencia==='2x'){freqSel='2x';}
+// Selecções múltiplas: {grupoId: {dia: 'Ter'}}
+let selecoes = {};
+
+function toggleTurma(id, lotado, event){
+  // Não fazer nada se clicou num botão filho
+  if(event.target.classList.contains('dia-sel-btn')) return;
+  if(lotado){
+    // Turma lotada — toggle para lista de espera
+    if(selecoes[id]){delete selecoes[id];}
+    else{selecoes[id]={dia:null,espera:true};}
+  } else {
+    if(selecoes[id]){
+      delete selecoes[id];
+      // Limpar dias
+      document.querySelectorAll(`.dia-sel-btn[data-grp="${id}"]`).forEach(b=>b.classList.remove('sel'));
+    } else {
+      selecoes[id]={dia:null,espera:false};
+      // Se só tem um dia, seleccionar automaticamente
+      const g=grupos.find(x=>x.id===id);
+      const dias=(g?.dias_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
+      if(dias.length===1){
+        selecoes[id].dia=dias[0];
+        document.querySelector(`.dia-sel-btn[data-grp="${id}"]`)?.classList.add('sel');
+      }
+    }
+  }
+  // Actualizar visual
+  const card=document.getElementById('tc-'+id);
+  const chk=document.getElementById('chk-'+id);
+  if(selecoes[id]){card.classList.add('sel');if(chk)chk.style.display='flex';}
+  else{card.classList.remove('sel');if(chk)chk.style.display='none';}
+  actualizarResumo();
 }
 
-function selFreq(grupoId, freq, btn){
-  if(grupoSel!==grupoId) return;
-  freqSel=freq;
-  // Actualizar botões só deste grupo
-  document.querySelectorAll(`.freq-btn[data-grp="${grupoId}"]`).forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');
+function selDia(grupoId, dia, btn, event){
   event.stopPropagation();
+  if(!selecoes[grupoId]) selecoes[grupoId]={dia:null,espera:false};
+  selecoes[grupoId].dia=dia;
+  document.querySelectorAll(`.dia-sel-btn[data-grp="${grupoId}"]`).forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  // Garantir que card fica seleccionado
+  document.getElementById('tc-'+grupoId)?.classList.add('sel');
+  document.getElementById('chk-'+grupoId).style.display='flex';
+  actualizarResumo();
+}
+
+function actualizarResumo(){
+  const ids=Object.keys(selecoes);
+  const resumo=document.getElementById('resumo-selecao');
+  if(!resumo) return;
+  if(!ids.length){resumo.style.display='none';return;}
+  resumo.style.display='block';
+  const nTurmas=ids.length;
+  // Calcular preço
+  let precoTotal=0;
+  if(nTurmas>=2){
+    // 2 ou mais turmas = sempre 2x = preco2x do primeiro grupo com preço
+    const g=grupos.find(x=>ids.includes(x.id)&&parseFloat(x.preco_mensal_2x||0)>0);
+    precoTotal=parseFloat(g?.preco_mensal_2x||0);
+  } else {
+    const g=grupos.find(x=>x.id===ids[0]);
+    // 1 turma — mostrar ambos os preços se disponíveis
+    const p1=parseFloat(g?.preco_mensal_1x||0);
+    const p2=parseFloat(g?.preco_mensal_2x||0);
+    precoTotal=p2>0?p2:p1; // default 2x
+  }
+
+  const linhas=ids.map(id=>{
+    const g=grupos.find(x=>x.id===id);
+    const s=selecoes[id];
+    const diaStr=s?.dia?` — <b>${s.dia}</b>`:'<span style="color:#854F0B"> — escolhe o dia ⬆</span>';
+    const espStr=s?.espera?' <span style="color:#A32D2D">(lista de espera)</span>':'';
+    return`<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #F3F4F6">✓ ${g?.nome||'—'} · ${g?.hora||''}${diaStr}${espStr}</div>`;
+  }).join('');
+
+  const freqStr=nTurmas>=2?'2× por semana':`1× ou 2× por semana`;
+  const precoStr=precoTotal>0?`<div style="font-size:15px;font-weight:700;color:var(--cor,#534AB7);margin-top:8px">💶 ${precoTotal.toFixed(2)} €/mês</div>`:'';
+
+  resumo.innerHTML=`
+    <div style="font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">A tua selecção</div>
+    ${linhas}
+    <div style="font-size:12px;color:#6B7280;margin-top:6px">${freqStr}</div>
+    ${precoStr}
+  `;
 }
 
 async function submeter(){
@@ -300,11 +386,21 @@ async function submeter(){
   const errEl=document.getElementById('err-global');
   errEl.style.display='none';
 
-  if(!grupoSel){errEl.textContent='Por favor selecciona uma turma.';errEl.style.display='block';window.scrollTo(0,200);return;}
+  const ids=Object.keys(selecoes);
+  if(!ids.length){errEl.textContent='Por favor selecciona pelo menos uma turma.';errEl.style.display='block';window.scrollTo(0,200);return;}
+  // Verificar dias seleccionados
+  for(const id of ids){
+    const g=grupos.find(x=>x.id===id);
+    const dias=(g?.dias_semana||'').split(',').filter(Boolean);
+    if(dias.length>1 && !selecoes[id]?.dia && !selecoes[id]?.espera){
+      errEl.textContent=`Por favor escolhe o dia para "${g?.nome}".`;errEl.style.display='block';return;
+    }
+  }
+  // Para compatibilidade com código existente
+  const grupoSel=ids[0];
   const g=grupos.find(x=>x.id===grupoSel);
-  const inscritos=inscCount[grupoSel]||0;
-  const lotado=inscritos>=(g?.vagas_max||10);
-  if(!lotado && g?.frequencia==='ambas' && !freqSel){errEl.textContent='Por favor escolhe a frequência (1× ou 2× por semana).';errEl.style.display='block';return;}
+  const lotado=selecoes[grupoSel]?.espera||false;
+  const freqSel=ids.length>=2?'2x':'1x';
   if(!nome){errEl.textContent='O nome é obrigatório.';errEl.style.display='block';return;}
   if(!tel){errEl.textContent='O telemóvel é obrigatório.';errEl.style.display='block';return;}
 
@@ -312,6 +408,12 @@ async function submeter(){
   btn.disabled=true; btn.textContent='A enviar...';
 
   const estadoInsc=lotado?'Espera':'Pendente';
+  // Resumo das turmas seleccionadas
+  const turmasResumo=ids.map(id=>{
+    const grp=grupos.find(x=>x.id===id);
+    const s=selecoes[id];
+    return`${grp?.nome||id} (${grp?.hora||''} ${s?.dia||''})${s?.espera?' [espera]':''}`;
+  }).join(' + ');
   const record={
     id:uid(),
     nome,
@@ -320,8 +422,9 @@ async function submeter(){
     data_nasc:document.getElementById('f-nasc').value||null,
     morada:document.getElementById('f-morada').value.trim()||null,
     grupo_id:grupoSel,
-    tipo_aula:freqSel||(g?.frequencia||null),
+    tipo_aula:ids.length>=2?'2x/semana':'1x/semana',
     obs:[
+      'Turmas: '+turmasResumo,
       document.getElementById('f-obj').value.trim()?'Objectivos: '+document.getElementById('f-obj').value.trim():'',
       document.getElementById('f-lesoes').value.trim()?'Lesões: '+document.getElementById('f-lesoes').value.trim():'',
       document.getElementById('f-obs').value.trim(),
@@ -348,7 +451,7 @@ async function submeter(){
           telemovel:  tel,
           email:      record.email||'—',
           tipo_aula:  freqSel?freqSel+'/semana':'—',
-          grupo:      g?.nome||'—',
+          grupo:      turmasResumo,
           obs:        record.obs||'—',
           data:       new Date().toLocaleDateString('pt-PT'),
           reply_to:   record.email||emailDestino,
