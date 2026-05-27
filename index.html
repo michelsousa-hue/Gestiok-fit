@@ -1824,25 +1824,35 @@ function safe(str){
     .replace(/€/g, 'EUR');
 }
 
-function pdfHeader(doc,titulo){
+async function pdfHeader(doc,titulo){
   const cor=D.cfg.org_cor||'#534AB7';
   const rgb=[cor.slice(1,3),cor.slice(3,5),cor.slice(5,7)].map(x=>parseInt(x,16));
   doc.setFillColor(...rgb); doc.rect(0,0,210,22,'F');
   const logo=D.cfg.org_logo||'';
   if(logo){
     try{
-      // Criar canvas para logótipo circular
-      const canvas=document.createElement('canvas');
-      canvas.width=128;canvas.height=128;
-      const ctx=canvas.getContext('2d');
-      const img=new Image();
-      img.src=logo;
-      ctx.beginPath();
-      ctx.arc(64,64,64,0,Math.PI*2);
-      ctx.clip();
-      ctx.drawImage(img,0,0,128,128);
-      const logoData=canvas.toDataURL('image/png');
-      doc.addImage(logoData,'PNG',7,3,16,16);
+      // Carregar imagem e desenhar circular
+      await new Promise((resolve)=>{
+        const img=new Image();
+        img.crossOrigin='anonymous';
+        img.onload=()=>{
+          const canvas=document.createElement('canvas');
+          canvas.width=128;canvas.height=128;
+          const ctx=canvas.getContext('2d');
+          ctx.beginPath();
+          ctx.arc(64,64,64,0,Math.PI*2);
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(img,0,0,128,128);
+          try{
+            const logoData=canvas.toDataURL('image/png');
+            doc.addImage(logoData,'PNG',7,3,16,16);
+          }catch(e){}
+          resolve();
+        };
+        img.onerror=()=>resolve();
+        img.src=logo;
+      });
     }catch(e){}
   }
   const xNome=logo?27:14;
@@ -1859,18 +1869,18 @@ function pdfFooter(doc){
   const n=doc.getNumberOfPages();
   for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(150);doc.text(`${D.cfg.org_nome||'GestiOK'} · ${new Date().toLocaleDateString('pt-PT')} · Pág ${i}/${n}`,105,290,{align:'center'});}
 }
-function exportPagPDF(){
+async function exportPagPDF(){
   const {jsPDF}=window.jspdf; const doc=new jsPDF();
-  pdfHeader(doc,'Pagamentos');
+  await pdfHeader(doc,'Pagamentos');
   doc.autoTable({startY:28,head:[['Cliente','Descrição','Valor','Método','Data','Estado']],body:D.pagamentos.map(p=>{const c=D.clientes.find(x=>x.id===p.cliente_id);return[c?.nome||'—',p.descricao||'—',fmt(p.valor)+' €',p.metodo||'—',fmtData(p.data_pag),p.estado||'—'];}),headStyles:{fillColor:D.cfg.org_cor?D.cfg.org_cor.match(/\w\w/g).map(x=>parseInt(x,16)):[83,74,183],fontSize:8},bodyStyles:{fontSize:8},alternateRowStyles:{fillColor:[248,247,252]}});
   pdfFooter(doc); doc.save('gestiok-pagamentos.pdf'); toast('PDF exportado!','ok');
 }
-function exportPresPDF(){
+async function exportPresPDF(){
   const {jsPDF}=window.jspdf; const doc=new jsPDF();
   const sesId=document.getElementById('sel-ses')?.value;
   const ses=D.sessoes.find(s=>s.id===sesId);
   const grp=D.grupos.find(g=>g.id===ses?.grupo_id);
-  pdfHeader(doc,'Presenças');
+  await pdfHeader(doc,'Presencas');
   if(ses)doc.text(`${grp?.nome||'—'} · ${ses.data} ${ses.hora}`,14,26);
   const pres=D.presencas[sesId]||{};
   const rows=Object.entries(pres).map(([cid,est])=>{const c=D.clientes.find(x=>x.id===cid);return[c?.nome||'—',est==='presente'?'✓ Presente':'✗ Falta'];});
