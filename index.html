@@ -1424,16 +1424,21 @@ async function aprovarInsc(id){
 
   // 2. Inscrever na turma se tiver grupo_id
   if(clienteId && i.grupo_id){
-    // Extrair dias do obs se disponível
-    const diasMatch=(i.obs||'').match(/Turmas:.*?\((.*?)\)/);
-    const diasStr=diasMatch?diasMatch[1]:'';
-    // Criar inscrição no grupo
+    // Extrair dias do obs — formato "Turmas: Nome (hora Ter+Qui)"
+    // Limpar para ficar só "Ter,Qui"
+    let diasStr='';
+    const obsText=i.obs||'';
+    const diasMatch=obsText.match(/\(([^)]+)\)/);
+    if(diasMatch){
+      // Remover hora (ex: "20:30 ") e converter + para ,
+      diasStr=diasMatch[1].replace(/\d{1,2}:\d{2}\s*/,'').replace(/\+/g,',').trim();
+    }
     await sb.from('inscricoes_grupo').upsert({
       id:uid(),
       cliente_id:clienteId,
       grupo_id:i.grupo_id,
       estado:'ativa',
-      dia_semana:diasStr||i.tipo_aula||null,
+      dia_semana:diasStr||null,
       data_inicio:new Date().toISOString().slice(0,10),
     });
   }
