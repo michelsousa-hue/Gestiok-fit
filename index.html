@@ -4,6 +4,47 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GestiOK · Pilates</title>
+<meta name="theme-color" content="#534AB7" id="meta-theme">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GestiOK" id="apple-title">
+<link rel="apple-touch-icon" id="apple-icon" href="">
+<script>
+// PWA manifest inline — actualizado dinamicamente com branding
+function injectManifest(nome, cor, logo){
+  const manifest = {
+    name: nome||'GestiOK Pilates',
+    short_name: 'GestiOK',
+    description: 'Gestão de aulas de Pilates e atividades físicas',
+    theme_color: cor||'#534AB7',
+    background_color: '#ffffff',
+    display: 'standalone',
+    orientation: 'any',
+    start_url: window.location.pathname,
+    scope: '/',
+    icons: logo ? [
+      {src: logo, sizes: '192x192', type: 'image/png', purpose: 'any maskable'},
+      {src: logo, sizes: '512x512', type: 'image/png'}
+    ] : [
+      {src: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22'+encodeURIComponent(cor||'%23534AB7')+'%22/><text y=%22.9em%22 font-size=%2260%22 x=%2250%25%22 text-anchor=%22middle%22>🧘</text></svg>', sizes: 'any', type: 'image/svg+xml'}
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest'; link.href = url;
+  // Remover manifest anterior se existir
+  document.querySelector('link[rel="manifest"]')?.remove();
+  document.head.appendChild(link);
+  // Apple touch icon
+  if(logo){
+    const ai = document.getElementById('apple-icon');
+    if(ai) ai.href = logo;
+  }
+}
+// Injectar manifest inicial
+injectManifest('GestiOK Pilates', '#534AB7', '');
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -106,6 +147,29 @@ html,body{height:100%;font-family:var(--f);font-size:14px;color:var(--t);backgro
 .csub{font-size:11px;color:var(--t3)}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
 @media(max-width:860px){.g2{grid-template-columns:1fr}}
+
+/* ── MOBILE ─────────────────────────────────────────────── */
+@media(max-width:768px) and (orientation:portrait){
+  .sidebar{display:none;position:fixed;left:0;top:0;bottom:0;z-index:200;box-shadow:4px 0 20px rgba(0,0,0,.15)}
+  .sidebar.open{display:flex}
+  .mob-overlay{display:block!important}
+  .topbar{padding:0 1rem}
+}
+@media(max-width:768px) and (orientation:landscape){
+  .sidebar{display:flex}
+  .mob-hamburger{display:none!important}
+}
+@media(max-width:768px){
+  .content{padding:1rem}
+  .metrics{grid-template-columns:repeat(2,1fr)}
+}
+.mob-hamburger{display:none;background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:var(--t)}
+.mob-hamburger:hover{background:var(--s2)}
+.mob-hamburger svg{width:22px;height:22px}
+.mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:199}
+@media(max-width:768px) and (orientation:portrait){
+  .mob-hamburger{display:flex!important;align-items:center;justify-content:center}
+}
 /* btn */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--s);color:var(--t);font-family:var(--f);font-size:13px;font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap}
 .btn svg{width:14px;height:14px}
@@ -291,9 +355,15 @@ tr:hover td{background:var(--s2)}
   </nav>
   <div class="main">
     <div class="topbar">
-      <div class="tbtitle" id="tbtitle">Dashboard</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="mob-hamburger" id="mob-hamburger" onclick="toggleSidebar()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="tbtitle" id="tbtitle">Dashboard</div>
+      </div>
       <div class="tbact" id="tbact"></div>
     </div>
+    <div class="mob-overlay" id="mob-overlay" onclick="toggleSidebar()"></div>
     <div class="content">
 
       <!-- DASHBOARD -->
@@ -660,6 +730,13 @@ async function loadConfig(){
   if(!data)return;
   data.forEach(r=>D.cfg[r.key]=r.value);
   aplicarBranding();
+  // Actualizar PWA manifest com branding real
+  const metaTheme=document.getElementById('meta-theme');
+  if(metaTheme) metaTheme.content=D.cfg.org_cor||'#534AB7';
+  injectManifest(D.cfg.org_nome, D.cfg.org_cor, D.cfg.org_logo);
+  // Apple title
+  const appleTitle=document.getElementById('apple-title');
+  if(appleTitle) appleTitle.content=D.cfg.org_nome||'GestiOK';
 }
 function aplicarBranding(){
   const c=D.cfg;
@@ -1454,6 +1531,26 @@ function exportPresPDF(){
 // ════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+// MENU MOBILE
+// ════════════════════════════════════════════════════════
+function toggleSidebar(){
+  const sb=document.querySelector('.sidebar');
+  const overlay=document.getElementById('mob-overlay');
+  sb.classList.toggle('open');
+  overlay.style.display=sb.classList.contains('open')?'block':'none';
+}
+// Fechar sidebar ao navegar em mobile
+const _goP=goP;
+function goP(id,el){
+  _goP(id,el);
+  const sb=document.querySelector('.sidebar');
+  if(sb.classList.contains('open')){
+    sb.classList.remove('open');
+    document.getElementById('mob-overlay').style.display='none';
+  }
+}
+
 async function init(){
   await loadConfig();
   // Carregar professores antes do login (para o select)
