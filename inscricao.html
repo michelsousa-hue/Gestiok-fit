@@ -303,19 +303,18 @@ function toggleTurma(id, lotado, event){
   if(lotado){
     // Turma lotada — toggle para lista de espera
     if(selecoes[id]){delete selecoes[id];}
-    else{selecoes[id]={dia:null,espera:true};}
+    else{selecoes[id]={dias:[],espera:true};}
   } else {
     if(selecoes[id]){
       delete selecoes[id];
-      // Limpar dias
       document.querySelectorAll(`.dia-sel-btn[data-grp="${id}"]`).forEach(b=>b.classList.remove('sel'));
     } else {
-      selecoes[id]={dia:null,espera:false};
+      selecoes[id]={dias:[],espera:false};
       // Se só tem um dia, seleccionar automaticamente
       const g=grupos.find(x=>x.id===id);
       const dias=(g?.dias_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
       if(dias.length===1){
-        selecoes[id].dia=dias[0];
+        selecoes[id].dias=[dias[0]];
         document.querySelector(`.dia-sel-btn[data-grp="${id}"]`)?.classList.add('sel');
       }
     }
@@ -330,13 +329,27 @@ function toggleTurma(id, lotado, event){
 
 function selDia(grupoId, dia, btn, event){
   event.stopPropagation();
-  if(!selecoes[grupoId]) selecoes[grupoId]={dia:null,espera:false};
-  selecoes[grupoId].dia=dia;
-  document.querySelectorAll(`.dia-sel-btn[data-grp="${grupoId}"]`).forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');
-  // Garantir que card fica seleccionado
-  document.getElementById('tc-'+grupoId)?.classList.add('sel');
-  document.getElementById('chk-'+grupoId).style.display='flex';
+  if(!selecoes[grupoId]) selecoes[grupoId]={dias:[],espera:false};
+  if(!selecoes[grupoId].dias) selecoes[grupoId].dias=[];
+  // Toggle do dia
+  const idx=selecoes[grupoId].dias.indexOf(dia);
+  if(idx>-1){
+    selecoes[grupoId].dias.splice(idx,1);
+    btn.classList.remove('sel');
+  } else {
+    selecoes[grupoId].dias.push(dia);
+    btn.classList.add('sel');
+  }
+  // Garantir que card fica seleccionado se tem pelo menos um dia
+  if(selecoes[grupoId].dias.length>0){
+    document.getElementById('tc-'+grupoId)?.classList.add('sel');
+    document.getElementById('chk-'+grupoId).style.display='flex';
+  } else {
+    // Se removeu todos os dias, desseleccionar o card
+    delete selecoes[grupoId];
+    document.getElementById('tc-'+grupoId)?.classList.remove('sel');
+    document.getElementById('chk-'+grupoId).style.display='none';
+  }
   actualizarResumo();
 }
 
@@ -346,30 +359,28 @@ function actualizarResumo(){
   if(!resumo) return;
   if(!ids.length){resumo.style.display='none';return;}
   resumo.style.display='block';
-  const nTurmas=ids.length;
-  // Calcular preço
+  // Total de dias seleccionados (incluindo 2 dias na mesma turma)
+  const totalDiasRes=ids.reduce((s,id)=>s+(selecoes[id]?.dias?.length||0),0);
   let precoTotal=0;
-  if(nTurmas>=2){
-    // 2 ou mais turmas = sempre 2x = preco2x do primeiro grupo com preço
-    const g=grupos.find(x=>ids.includes(x.id)&&parseFloat(x.preco_mensal_2x||0)>0);
-    precoTotal=parseFloat(g?.preco_mensal_2x||0);
+  if(totalDiasRes>=2){
+    const gPreco=grupos.find(x=>ids.includes(x.id)&&parseFloat(x.preco_mensal_2x||0)>0);
+    precoTotal=parseFloat(gPreco?.preco_mensal_2x||0);
   } else {
     const g=grupos.find(x=>x.id===ids[0]);
-    // 1 turma — mostrar ambos os preços se disponíveis
     const p1=parseFloat(g?.preco_mensal_1x||0);
     const p2=parseFloat(g?.preco_mensal_2x||0);
-    precoTotal=p2>0?p2:p1; // default 2x
+    precoTotal=p1>0?p1:(p2>0?p2:0);
   }
 
   const linhas=ids.map(id=>{
     const g=grupos.find(x=>x.id===id);
     const s=selecoes[id];
-    const diaStr=s?.dia?` — <b>${s.dia}</b>`:'<span style="color:#854F0B"> — escolhe o dia ⬆</span>';
+    const diaStr=s?.dias?.length>0?` — <b>${s.dias.join(' + ')}</b>`:'<span style="color:#854F0B"> — escolhe o(s) dia(s) ⬆</span>';
     const espStr=s?.espera?' <span style="color:#A32D2D">(lista de espera)</span>':'';
     return`<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #F3F4F6">✓ ${g?.nome||'—'} · ${g?.hora||''}${diaStr}${espStr}</div>`;
   }).join('');
 
-  const freqStr=nTurmas>=2?'2× por semana':`1× ou 2× por semana`;
+  const freqStr=totalDiasRes>=2?'2× por semana':'1× por semana';
   const precoStr=precoTotal>0?`<div style="font-size:15px;font-weight:700;color:var(--cor,#534AB7);margin-top:8px">💶 ${precoTotal.toFixed(2)} €/mês</div>`:'';
 
   resumo.innerHTML=`
@@ -388,19 +399,21 @@ async function submeter(){
 
   const ids=Object.keys(selecoes);
   if(!ids.length){errEl.textContent='Por favor selecciona pelo menos uma turma.';errEl.style.display='block';window.scrollTo(0,200);return;}
+  // Contar total de dias seleccionados (para calcular frequência)
+  const totalDias=ids.reduce((s,id)=>s+(selecoes[id]?.dias?.length||0),0);
   // Verificar dias seleccionados
   for(const id of ids){
     const g=grupos.find(x=>x.id===id);
     const dias=(g?.dias_semana||'').split(',').filter(Boolean);
-    if(dias.length>1 && !selecoes[id]?.dia && !selecoes[id]?.espera){
-      errEl.textContent=`Por favor escolhe o dia para "${g?.nome}".`;errEl.style.display='block';return;
+    if(dias.length>1 && (!selecoes[id]?.dias||selecoes[id].dias.length===0) && !selecoes[id]?.espera){
+      errEl.textContent=`Por favor escolhe pelo menos um dia para "${g?.nome}".`;errEl.style.display='block';return;
     }
   }
   // Para compatibilidade com código existente
   const grupoSel=ids[0];
   const g=grupos.find(x=>x.id===grupoSel);
   const lotado=selecoes[grupoSel]?.espera||false;
-  const freqSel=ids.length>=2?'2x':'1x';
+  const freqSel=totalDias>=2?'2x':'1x';
   if(!nome){errEl.textContent='O nome é obrigatório.';errEl.style.display='block';return;}
   if(!tel){errEl.textContent='O telemóvel é obrigatório.';errEl.style.display='block';return;}
 
@@ -412,7 +425,8 @@ async function submeter(){
   const turmasResumo=ids.map(id=>{
     const grp=grupos.find(x=>x.id===id);
     const s=selecoes[id];
-    return`${grp?.nome||id} (${grp?.hora||''} ${s?.dia||''})${s?.espera?' [espera]':''}`;
+    const diasStr=(s?.dias||[]).join('+');
+    return`${grp?.nome||id} (${grp?.hora||''} ${diasStr})${s?.espera?' [espera]':''}`;
   }).join(' + ');
   const record={
     id:uid(),
