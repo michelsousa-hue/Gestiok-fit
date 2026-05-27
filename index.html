@@ -343,6 +343,7 @@ tr:hover td{background:var(--s2)}
       <div class="ni" id="ni-inscricoes" onclick="goP('inscricoes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Inscrições online<span class="nbadge" id="bdg-insc" style="display:none">0</span></div>
       <div class="nsec" id="ns-admin">Sistema</div>
       <div class="ni" id="ni-professores" onclick="goP('professores',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Professores</div>
+      <div class="ni" id="ni-relatorios" onclick="goP('relatorios',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Relatórios</div>
       <div class="ni" id="ni-config" onclick="goP('config',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configurações</div>
     </div>
     <div class="sbfoot">
@@ -449,6 +450,42 @@ tr:hover td{background:var(--s2)}
         </div>
       </div>
 
+      <!-- RELATÓRIOS -->
+      <div id="p-relatorios" class="page">
+        <div class="g2">
+          <div class="card">
+            <div class="ct" style="margin-bottom:1rem">Relatório mensal</div>
+            <div class="fg"><label class="fl">Mês</label>
+              <input class="fi" id="rel-mes" type="month" value="">
+            </div>
+            <div class="fg"><label class="fl">Turma</label>
+              <select class="fs" id="rel-grupo">
+                <option value="">Todas as turmas</option>
+              </select>
+            </div>
+            <button class="btn btnp" style="width:100%;margin-top:4px" onclick="gerarRelatorioMensal()">
+              📄 Exportar PDF mensal
+            </button>
+          </div>
+          <div class="card">
+            <div class="ct" style="margin-bottom:1rem">Relatório global acumulado</div>
+            <div class="fg"><label class="fl">Data início</label>
+              <input class="fi" id="rel-inicio" type="date">
+            </div>
+            <div class="fg"><label class="fl">Data fim</label>
+              <input class="fi" id="rel-fim" type="date">
+            </div>
+            <button class="btn btnp" style="width:100%;margin-top:4px" onclick="gerarRelatorioGlobal()">
+              📄 Exportar PDF global
+            </button>
+          </div>
+        </div>
+        <div class="card" id="rel-preview">
+          <div class="ct" style="margin-bottom:1rem">Pré-visualização</div>
+          <div id="rel-preview-body"><div class="empty"><b>Selecciona os filtros e exporta</b></div></div>
+        </div>
+      </div>
+
       <!-- PROFESSORES (só admin) -->
       <div id="p-professores" class="page">
         <div class="card">
@@ -486,6 +523,11 @@ tr:hover td{background:var(--s2)}
                 </label>
                 <input type="file" id="cfg-logo-file" accept="image/*" style="display:none" onchange="uploadLogo(this)">
                 <input type="hidden" id="cfg-logo">
+              </div>
+              <div class="fg"><label class="fl">Nome do parceiro / clínica</label><input class="fi" id="cfg-parceiro-nome" placeholder="Clínica Fisioterapia XYZ"></div>
+              <div class="fg">
+                <label class="fl">Percentagem a pagar ao parceiro (%)</label>
+                <input class="fi" id="cfg-parceiro-pct" type="number" step="0.1" min="0" max="100" placeholder="20">
               </div>
               <button class="btn btnp" style="width:100%;margin-top:4px" onclick="guardarConfig()">Guardar configurações</button>
             </div>
@@ -948,7 +990,7 @@ async function carregarPlanos(){ const {data}=await sb.from('planos').select('*'
 // ════════════════════════════════════════════════════════
 // NAVEGAÇÃO
 // ════════════════════════════════════════════════════════
-const TITLES={dashboard:'Dashboard',clientes:'Clientes',grupos:'Grupos / Aulas',sessoes:'Sessões',presencas:'Presenças',pagamentos:'Pagamentos',espera:'Lista de Espera',comunicados:'Comunicados',inscricoes:'Inscrições Online',professores:'Professores',config:'Configurações'};
+const TITLES={dashboard:'Dashboard',relatorios:'Relatórios',clientes:'Clientes',grupos:'Grupos / Aulas',sessoes:'Sessões',presencas:'Presenças',pagamentos:'Pagamentos',espera:'Lista de Espera',comunicados:'Comunicados',inscricoes:'Inscrições Online',professores:'Professores',config:'Configurações'};
 function goP(id,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
@@ -957,6 +999,7 @@ function goP(id,el){
   document.getElementById('tbtitle').textContent=TITLES[id]||id;
   if(id==='presencas') popularSelSessoes();
   if(id==='config'){ popularSelGrpLink(); renderPlanos(); aplicarBranding(); }
+  if(id==='relatorios'){ popularSelRelatorios(); }
   closeSidebar();
 }
 
@@ -1002,6 +1045,42 @@ function popularSelSessoes(){
       return`<option value="${s.id}">${s.data} ${s.hora} — ${g?.nome||'?'}</option>`;
     }).join('');
 }
+function popularSelRelatorios(){
+  const sel=document.getElementById('rel-grupo');
+  if(sel) sel.innerHTML='<option value="">Todas as turmas</option>'+
+    D.grupos.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('');
+  // Datas default — mês actual
+  const hoje=new Date();
+  const mesAtual=hoje.toISOString().slice(0,7);
+  const el=document.getElementById('rel-mes');
+  if(el&&!el.value) el.value=mesAtual;
+  const ini=document.getElementById('rel-inicio');
+  const fim=document.getElementById('rel-fim');
+  if(ini&&!ini.value) ini.value=hoje.getFullYear()+'-01-01';
+  if(fim&&!fim.value) fim.value=hoje.toISOString().slice(0,10);
+  // Pré-visualizar resumo
+  mostrarPreviewRelatorio();
+}
+
+async function mostrarPreviewRelatorio(){
+  const pags=D.pagamentos;
+  const total=pags.reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const pagos=pags.filter(p=>p.estado==='pago').reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const pendentes=pags.filter(p=>p.estado!=='pago').reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const pct=parseFloat(D.cfg.parceiro_pct||0);
+  const parceiro=D.cfg.parceiro_nome||'Parceiro';
+  const aPartilhar=pagos*(pct/100);
+  document.getElementById('rel-preview-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:1rem">
+      <div class="metric"><div class="mlabel">Total facturado</div><div class="mval" style="font-size:20px">${total.toFixed(2)} €</div></div>
+      <div class="metric"><div class="mlabel">Recebido</div><div class="mval" style="font-size:20px;color:var(--green)">${pagos.toFixed(2)} €</div></div>
+      <div class="metric"><div class="mlabel">Pendente</div><div class="mval" style="font-size:20px;color:var(--amber)">${pendentes.toFixed(2)} €</div></div>
+      <div class="metric ac"><div class="mlabel">A pagar a ${parceiro} (${pct}%)</div><div class="mval" style="font-size:20px;color:var(--P)">${aPartilhar.toFixed(2)} €</div></div>
+    </div>
+    <p style="font-size:12px;color:var(--t2)">Estes valores são globais. Usa os filtros acima para exportar por período ou turma.</p>
+  `;
+}
+
 function popularSelGrpLink(){
   const sel=document.getElementById('cfg-grp-link');
   if(sel)sel.innerHTML=D.grupos.map(g=>`<option value="${g.id}">${g.nome}</option>`).join('');
@@ -1576,12 +1655,166 @@ function renderPlanos(){
 // ════════════════════════════════════════════════════════
 // PDF
 // ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+// RELATÓRIOS PDF
+// ════════════════════════════════════════════════════════
+async function gerarRelatorioMensal(){
+  const mes=document.getElementById('rel-mes').value;
+  const grupoId=document.getElementById('rel-grupo').value;
+  if(!mes){toast('Selecciona o mês','err');return;}
+
+  // Filtrar pagamentos
+  const [ano,m]=mes.split('-');
+  let pags=D.pagamentos.filter(p=>{
+    const d=p.data_pag||p.created_at||'';
+    return d.startsWith(mes);
+  });
+  if(grupoId){
+    // Filtrar clientes da turma
+    const {data:inscGrp}=await sb.from('inscricoes_grupo').select('cliente_id').eq('grupo_id',grupoId).eq('estado','ativa');
+    const clientesGrp=new Set((inscGrp||[]).map(i=>i.cliente_id));
+    pags=pags.filter(p=>clientesGrp.has(p.cliente_id));
+  }
+
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  const pct=parseFloat(D.cfg.parceiro_pct||0);
+  const parceiro=D.cfg.parceiro_nome||'Parceiro';
+  const grp=grupoId?D.grupos.find(g=>g.id===grupoId):null;
+  const titulo=`Relatório ${new Date(mes+'-01').toLocaleDateString('pt-PT',{month:'long',year:'numeric'})}`;
+
+  pdfHeader(doc,titulo);
+
+  // Info
+  doc.setFontSize(10);doc.setTextColor(100);
+  doc.text(grp?`Turma: ${grp.nome} ${grp.hora||''} ${grp.dias_semana||''}`:'Todas as turmas',14,26);
+
+  // Tabela de pagamentos
+  const total=pags.reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const pagos=pags.filter(p=>p.estado==='pago').reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const aPartilhar=pagos*(pct/100);
+
+  doc.autoTable({
+    startY:32,
+    head:[['Cliente','Descrição','Valor','Data','Estado']],
+    body:pags.map(p=>{
+      const c=D.clientes.find(x=>x.id===p.cliente_id);
+      return[safe(c?.nome||'-'),safe(p.descricao||'-'),fmt(p.valor)+' EUR',fmtData(p.data_pag),safe(p.estado||'-')];
+    }),
+    headStyles:{fillColor:D.cfg.org_cor?D.cfg.org_cor.match(/\w\w/g).map(x=>parseInt(x,16)):[83,74,183],fontSize:8},
+    bodyStyles:{fontSize:8},
+    alternateRowStyles:{fillColor:[248,247,252]},
+  });
+
+  const y=doc.lastAutoTable.finalY+10;
+  doc.setFontSize(10);doc.setTextColor(0);
+  doc.setFont('helvetica','bold');
+  doc.text('Resumo financeiro',14,y);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);doc.setTextColor(80);
+  doc.text(safe(`Total facturado: ${total.toFixed(2)} EUR`),14,y+8);
+  doc.text(safe(`Total recebido: ${pagos.toFixed(2)} EUR`),14,y+15);
+  doc.setTextColor(83,74,183);
+  doc.setFont('helvetica','bold');
+  doc.text(safe(`A pagar a ${parceiro} (${pct}%): ${aPartilhar.toFixed(2)} EUR`),14,y+22);
+
+  pdfFooter(doc);
+  doc.save(`gestiok-relatorio-${mes}${grp?'-'+grp.nome.replace(/\s/g,'-'):''}.pdf`);
+  toast('PDF exportado!','ok');
+}
+
+async function gerarRelatorioGlobal(){
+  const inicio=document.getElementById('rel-inicio').value;
+  const fim=document.getElementById('rel-fim').value;
+  if(!inicio||!fim){toast('Define o período','err');return;}
+
+  const pags=D.pagamentos.filter(p=>{
+    const d=p.data_pag||p.created_at||'';
+    return d>=inicio&&d<=fim;
+  });
+
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  const pct=parseFloat(D.cfg.parceiro_pct||0);
+  const parceiro=D.cfg.parceiro_nome||'Parceiro';
+
+  pdfHeader(doc,'Relatório Global Acumulado');
+  doc.setFontSize(9);doc.setTextColor(100);
+  doc.text(safe(`Periodo: ${fmtData(inicio)} a ${fmtData(fim)}`),14,26);
+
+  // Agrupar por turma
+  const porGrupo={};
+  pags.forEach(p=>{
+    // Encontrar grupo do cliente
+    const inscli=D.grupos.find(g=>{
+      // simplificado — agrupa por descrição ou turma
+      return true;
+    });
+    const key='geral';
+    if(!porGrupo[key]) porGrupo[key]={pags:[],total:0,pagos:0};
+    porGrupo[key].pags.push(p);
+    porGrupo[key].total+=parseFloat(p.valor)||0;
+    if(p.estado==='pago') porGrupo[key].pagos+=parseFloat(p.valor)||0;
+  });
+
+  // Tabela geral
+  const total=pags.reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const pagos=pags.filter(p=>p.estado==='pago').reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const pendentes=total-pagos;
+  const aPartilhar=pagos*(pct/100);
+
+  doc.autoTable({
+    startY:32,
+    head:[['Cliente','Descrição','Valor','Data','Estado']],
+    body:pags.map(p=>{
+      const c=D.clientes.find(x=>x.id===p.cliente_id);
+      return[safe(c?.nome||'-'),safe(p.descricao||'-'),fmt(p.valor)+' EUR',fmtData(p.data_pag),safe(p.estado||'-')];
+    }),
+    headStyles:{fillColor:D.cfg.org_cor?D.cfg.org_cor.match(/\w\w/g).map(x=>parseInt(x,16)):[83,74,183],fontSize:8},
+    bodyStyles:{fontSize:8},
+    alternateRowStyles:{fillColor:[248,247,252]},
+  });
+
+  const y=doc.lastAutoTable.finalY+10;
+  // Caixa de resumo
+  doc.setFillColor(238,237,254);
+  doc.roundedRect(14,y,182,38,3,3,'F');
+  doc.setFontSize(10);doc.setTextColor(0);
+  doc.setFont('helvetica','bold');
+  doc.text('Resumo do período',20,y+9);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(60);
+  doc.text(safe(`Total facturado: ${total.toFixed(2)} EUR`),20,y+17);
+  doc.text(safe(`Recebido: ${pagos.toFixed(2)} EUR`),20,y+24);
+  doc.text(safe(`Pendente: ${pendentes.toFixed(2)} EUR`),100,y+17);
+  doc.setTextColor(83,74,183);doc.setFont('helvetica','bold');doc.setFontSize(10);
+  doc.text(safe(`A pagar a ${parceiro} (${pct}%): ${aPartilhar.toFixed(2)} EUR`),20,y+33);
+
+  pdfFooter(doc);
+  doc.save(`gestiok-global-${inicio}-${fim}.pdf`);
+  toast('PDF global exportado!','ok');
+}
+
+// Limpar caracteres especiais para PDF
+function safe(str){
+  return String(str||'')
+    .replace(/[àáâãäå]/gi, function(c){ return 'aaaaaa'['àáâãäå'.indexOf(c.toLowerCase())]||c; })
+    .replace(/[èéêë]/gi, 'e')
+    .replace(/[ìíîï]/gi, 'i')
+    .replace(/[òóôõö]/gi, 'o')
+    .replace(/[ùúûü]/gi, 'u')
+    .replace(/ç/gi, 'c')
+    .replace(/ñ/gi, 'n')
+    .replace(/ã/g, 'a').replace(/Ã/g, 'A')
+    .replace(/õ/g, 'o').replace(/Õ/g, 'O')
+    .replace(/€/g, 'EUR');
+}
+
 function pdfHeader(doc,titulo){
   const cor=D.cfg.org_cor||'#534AB7';
   const rgb=cor.match(/\w\w/g).map(x=>parseInt(x,16));
   doc.setFillColor(...rgb); doc.rect(0,0,210,18,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text(D.cfg.org_nome||'GestiOK',14,12);
+  doc.text(safe(D.cfg.org_nome||'GestiOK'),14,12);
   doc.setFontSize(10); doc.setFont('helvetica','normal');
   doc.text(titulo,196,12,{align:'right'});
   doc.setTextColor(0);
