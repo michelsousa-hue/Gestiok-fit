@@ -474,7 +474,19 @@ tr:hover td{background:var(--s2)}
                   <div class="cor-prev" id="cfg-cor-prev" style="background:#534AB7"></div>
                 </div>
               </div>
-              <div class="fg"><label class="fl">URL do logótipo</label><input class="fi" id="cfg-logo" placeholder="https://..."></div>
+              <div class="fg">
+                <label class="fl">Logótipo</label>
+                <div id="logo-preview-wrap" style="display:none;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+                  <img id="logo-preview-img" src="" alt="Logo" style="width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid var(--bd2)">
+                  <button class="btn btns btnd" onclick="removerLogo()">Remover</button>
+                </div>
+                <label id="logo-upload-label" style="display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;padding:10px;border:1.5px dashed var(--bd2);border-radius:var(--r);font-size:13px;color:var(--t2);width:100%">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span id="logo-upload-txt">Escolher ficheiro ou foto</span>
+                </label>
+                <input type="file" id="cfg-logo-file" accept="image/*" style="display:none" onchange="uploadLogo(this)">
+                <input type="hidden" id="cfg-logo">
+              </div>
               <button class="btn btnp" style="width:100%;margin-top:4px" onclick="guardarConfig()">Guardar configurações</button>
             </div>
             <div class="card">
@@ -767,6 +779,14 @@ function aplicarBranding(){
   document.getElementById('cfg-cor').value=cor;
   document.getElementById('cfg-cor-prev').style.background=cor;
   document.getElementById('cfg-logo').value=logo;
+  if(logo){
+    document.getElementById('logo-preview-img').src=logo;
+    document.getElementById('logo-preview-wrap').style.display='flex';
+    document.getElementById('logo-upload-txt').textContent='Alterar logótipo';
+  } else {
+    document.getElementById('logo-preview-wrap').style.display='none';
+    document.getElementById('logo-upload-txt').textContent='Escolher ficheiro ou foto';
+  }
 }
 document.getElementById('cfg-cor').addEventListener('input',function(){
   document.getElementById('cfg-cor-prev').style.background=this.value;
@@ -925,6 +945,7 @@ function goP(id,el){
   document.getElementById('tbtitle').textContent=TITLES[id]||id;
   if(id==='presencas') popularSelSessoes();
   if(id==='config'){ popularSelGrpLink(); renderPlanos(); aplicarBranding(); }
+  closeSidebar();
 }
 
 // ════════════════════════════════════════════════════════
@@ -1532,6 +1553,47 @@ function exportPresPDF(){
 // INIT
 // ════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════
+// UPLOAD DE LOGÓTIPO
+// ════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  const lbl=document.getElementById('logo-upload-label');
+  if(lbl) lbl.onclick=()=>document.getElementById('cfg-logo-file').click();
+});
+
+async function uploadLogo(input){
+  const file=input.files[0];
+  if(!file)return;
+  if(file.size>2*1024*1024){toast('Ficheiro demasiado grande (máx 2MB)','err');return;}
+  document.getElementById('logo-upload-txt').textContent='A carregar...';
+  const nomeFile='logo_'+Date.now()+'.'+file.name.split('.').pop();
+  // Tentar upload — criar bucket se não existir
+  let uploadOk=false;
+  const {error}=await sb.storage.from('logos').upload(nomeFile,file,{upsert:true,cacheControl:'3600'});
+  if(error){
+    if(error.message?.includes('Bucket not found')||error.message?.includes('not found')){
+      await sb.storage.createBucket('logos',{public:true});
+      const r2=await sb.storage.from('logos').upload(nomeFile,file,{upsert:true});
+      if(!r2.error) uploadOk=true;
+    }
+  } else { uploadOk=true; }
+  if(!uploadOk){toast('Erro no upload — verifica o Supabase Storage','err');document.getElementById('logo-upload-txt').textContent='Escolher ficheiro ou foto';return;}
+  const {data:urlData}=sb.storage.from('logos').getPublicUrl(nomeFile);
+  const url=urlData.publicUrl;
+  document.getElementById('cfg-logo').value=url;
+  document.getElementById('logo-preview-img').src=url;
+  document.getElementById('logo-preview-wrap').style.display='flex';
+  document.getElementById('logo-upload-txt').textContent='Alterar logótipo';
+  toast('Logótipo carregado! Clica em "Guardar configurações".','ok');
+}
+
+function removerLogo(){
+  document.getElementById('cfg-logo').value='';
+  document.getElementById('logo-preview-wrap').style.display='none';
+  document.getElementById('logo-upload-txt').textContent='Escolher ficheiro ou foto';
+  document.getElementById('cfg-logo-file').value='';
+}
+
+// ════════════════════════════════════════════════════════
 // MENU MOBILE
 // ════════════════════════════════════════════════════════
 function toggleSidebar(){
@@ -1540,15 +1602,11 @@ function toggleSidebar(){
   sb.classList.toggle('open');
   overlay.style.display=sb.classList.contains('open')?'block':'none';
 }
-// Fechar sidebar ao navegar em mobile
-const _goP=goP;
-function goP(id,el){
-  _goP(id,el);
+function closeSidebar(){
   const sb=document.querySelector('.sidebar');
-  if(sb.classList.contains('open')){
-    sb.classList.remove('open');
-    document.getElementById('mob-overlay').style.display='none';
-  }
+  sb.classList.remove('open');
+  const overlay=document.getElementById('mob-overlay');
+  if(overlay) overlay.style.display='none';
 }
 
 async function init(){
