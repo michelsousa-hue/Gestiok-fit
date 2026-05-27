@@ -558,6 +558,28 @@ async function submeter(){
 }
 
 init();
+
+// Recarregar vagas quando o utilizador volta ao separador
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden) recarregarVagas();
+});
+window.addEventListener('focus', recarregarVagas);
+
+async function recarregarVagas(){
+  try{
+    const {data:vagasDia}=await sb.from('vagas_por_dia').select('*');
+    vagasPorDia={};
+    (vagasDia||[]).forEach(v=>{
+      if(!vagasPorDia[v.grupo_id]) vagasPorDia[v.grupo_id]={};
+      vagasPorDia[v.grupo_id][v.dia.trim()]={inscritos:parseInt(v.inscritos)||0,vagas_max:v.vagas_max,minimo:v.minimo};
+    });
+    // Re-renderizar turmas com dados frescos
+    if(modalidadeSel){
+      const grpsFiltrados=grupos.filter(g=>g.modalidade===modalidadeSel);
+      renderTurmas(grpsFiltrados,profsMapGlobal);
+    }
+  }catch(e){ console.warn('Erro ao recarregar vagas:',e); }
+}
 </script>
 </body>
 </html>
