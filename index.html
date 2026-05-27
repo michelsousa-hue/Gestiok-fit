@@ -524,6 +524,7 @@ tr:hover td{background:var(--s2)}
                 <input type="file" id="cfg-logo-file" accept="image/*" style="display:none" onchange="uploadLogo(this)">
                 <input type="hidden" id="cfg-logo">
               </div>
+              <div class="fg"><label class="fl">Email para notificações de inscrição</label><input class="fi" id="cfg-notif-email" type="email" placeholder="o-teu@email.com"></div>
               <div class="fg"><label class="fl">Nome do parceiro / clínica</label><input class="fi" id="cfg-parceiro-nome" placeholder="Clínica Fisioterapia XYZ"></div>
               <div class="fg">
                 <label class="fl">Percentagem a pagar ao parceiro (%)</label>
@@ -829,6 +830,17 @@ function aplicarBranding(){
     document.getElementById('logo-preview-wrap').style.display='none';
     document.getElementById('logo-upload-txt').textContent='Escolher ficheiro ou foto';
   }
+  // Campos adicionais
+  const elNotif=document.getElementById('cfg-notif-email');
+  const elPN=document.getElementById('cfg-parceiro-nome');
+  const elPP=document.getElementById('cfg-parceiro-pct');
+  if(elNotif) elNotif.value=c.notif_email||'';
+  if(elPN) elPN.value=c.parceiro_nome||'';
+  if(elPP) elPP.value=c.parceiro_pct||'';
+  // PWA
+  const metaTheme=document.getElementById('meta-theme');
+  if(metaTheme) metaTheme.content=cor;
+  injectManifest(nome,cor,logo);
 }
 document.getElementById('cfg-cor').addEventListener('input',function(){
   document.getElementById('cfg-cor-prev').style.background=this.value;
