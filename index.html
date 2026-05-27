@@ -1831,29 +1831,24 @@ async function pdfHeader(doc,titulo){
   const logo=D.cfg.org_logo||'';
   if(logo){
     try{
-      // Carregar imagem e desenhar circular
-      await new Promise((resolve)=>{
-        const img=new Image();
-        img.crossOrigin='anonymous';
-        img.onload=()=>{
-          const canvas=document.createElement('canvas');
-          canvas.width=128;canvas.height=128;
-          const ctx=canvas.getContext('2d');
-          ctx.beginPath();
-          ctx.arc(64,64,64,0,Math.PI*2);
-          ctx.closePath();
-          ctx.clip();
-          ctx.drawImage(img,0,0,128,128);
-          try{
-            const logoData=canvas.toDataURL('image/png');
-            doc.addImage(logoData,'PNG',7,3,16,16);
-          }catch(e){}
-          resolve();
-        };
-        img.onerror=()=>resolve();
-        img.src=logo;
+      // Converter para base64 via fetch
+      const resp=await fetch(logo);
+      const blob=await resp.blob();
+      const b64=await new Promise(res=>{
+        const r=new FileReader();
+        r.onload=()=>res(r.result);
+        r.readAsDataURL(blob);
       });
-    }catch(e){}
+      // Desenhar circular via canvas
+      const img=new Image();
+      await new Promise(res=>{img.onload=res;img.onerror=res;img.src=b64;});
+      const cv=document.createElement('canvas');
+      cv.width=128;cv.height=128;
+      const ctx=cv.getContext('2d');
+      ctx.beginPath();ctx.arc(64,64,64,0,Math.PI*2);ctx.clip();
+      ctx.drawImage(img,0,0,128,128);
+      doc.addImage(cv.toDataURL('image/png'),'PNG',7,3,16,16);
+    }catch(e){ console.warn('Logo PDF erro:',e); }
   }
   const xNome=logo?27:14;
   doc.setTextColor(255,255,255);
