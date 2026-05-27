@@ -1828,18 +1828,17 @@ async function pdfHeader(doc,titulo){
   const cor=D.cfg.org_cor||'#534AB7';
   const rgb=[cor.slice(1,3),cor.slice(3,5),cor.slice(5,7)].map(x=>parseInt(x,16));
   doc.setFillColor(...rgb); doc.rect(0,0,210,22,'F');
-  // Usar logo já carregado na app (elemento img da sidebar)
   try{
     const sbImg=document.getElementById('sbimg');
     if(sbImg&&sbImg.src&&sbImg.src!==window.location.href){
-      const cv=document.createElement('canvas');
-      cv.width=128;cv.height=128;
-      const ctx=cv.getContext('2d');
-      ctx.beginPath();ctx.arc(64,64,64,0,Math.PI*2);ctx.clip();
-      ctx.drawImage(sbImg,0,0,128,128);
-      doc.addImage(cv.toDataURL('image/png'),'PNG',7,3,16,16);
+      doc.addImage(sbImg,'PNG',7,3,16,16);
     }
-  }catch(e){ console.warn('Logo:',e); }
+  }catch(e){
+    try{
+      const sbImg=document.getElementById('sbimg');
+      if(sbImg&&sbImg.src) doc.addImage(sbImg,'JPEG',7,3,16,16);
+    }catch(e2){ console.warn('Logo PDF:',e2); }
+  }
   const xNome=logo?27:14;
   doc.setTextColor(255,255,255);
   doc.setFontSize(13); doc.setFont('helvetica','bold');
