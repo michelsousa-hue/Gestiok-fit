@@ -924,7 +924,19 @@ async function carregarTudo(){
   renderDash(); actualizarBadges();
 }
 async function carregarClientes(){ const {data}=await sb.from('clientes').select('*').order('nome'); D.clientes=data||[]; renderClientes(); }
-async function carregarGrupos(){ const {data}=await sb.from('grupos').select('*').order('nome'); D.grupos=data||[]; renderGrupos(); popularSels(); }
+async function carregarGrupos(){
+  const [{data:grps},{data:insc}]=await Promise.all([
+    sb.from('grupos').select('*').order('nome'),
+    sb.from('inscricoes_grupo').select('grupo_id').eq('estado','ativa')
+  ]);
+  D.grupos=grps||[];
+  // Contar inscritos por grupo
+  D.inscricoes_grupo_count={};
+  (insc||[]).forEach(i=>{
+    D.inscricoes_grupo_count[i.grupo_id]=(D.inscricoes_grupo_count[i.grupo_id]||0)+1;
+  });
+  renderGrupos(); popularSels();
+}
 async function carregarSessoes(){ const {data}=await sb.from('sessoes').select('*').order('data',{ascending:false}).order('hora'); D.sessoes=data||[]; renderSessoes(); }
 async function carregarProfessores(){ const {data}=await sb.from('professores').select('*').order('nome'); D.professores=data||[]; renderProfessores(); }
 async function carregarPagamentos(){ const {data}=await sb.from('pagamentos').select('*').order('created_at',{ascending:false}); D.pagamentos=data||[]; renderPagamentos(); }
