@@ -454,35 +454,29 @@ tr:hover td{background:var(--s2)}
       <div id="p-relatorios" class="page">
         <div class="g2">
           <div class="card">
-            <div class="ct" style="margin-bottom:1rem">Relatório mensal</div>
+            <div class="ct" style="margin-bottom:1rem">Filtros</div>
             <div class="fg"><label class="fl">Mês</label>
               <input class="fi" id="rel-mes" type="month" value="">
+            </div>
+            <div class="fg" id="rel-prof-wrap"><label class="fl">Professor</label>
+              <select class="fs" id="rel-prof">
+                <option value="">Todos os professores</option>
+              </select>
             </div>
             <div class="fg"><label class="fl">Turma</label>
               <select class="fs" id="rel-grupo">
                 <option value="">Todas as turmas</option>
               </select>
             </div>
-            <button class="btn btnp" style="width:100%;margin-top:4px" onclick="gerarRelatorioMensal()">
-              📄 Exportar PDF mensal
-            </button>
-          </div>
-          <div class="card">
-            <div class="ct" style="margin-bottom:1rem">Relatório global acumulado</div>
-            <div class="fg"><label class="fl">Data início</label>
-              <input class="fi" id="rel-inicio" type="date">
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button class="btn btnp" style="flex:1" onclick="gerarRelatorioMensal()">📄 PDF mensal</button>
+              <button class="btn btns" style="flex:1" onclick="gerarRelatorioGlobal()">📄 PDF global</button>
             </div>
-            <div class="fg"><label class="fl">Data fim</label>
-              <input class="fi" id="rel-fim" type="date">
-            </div>
-            <button class="btn btnp" style="width:100%;margin-top:4px" onclick="gerarRelatorioGlobal()">
-              📄 Exportar PDF global
-            </button>
           </div>
-        </div>
-        <div class="card" id="rel-preview">
-          <div class="ct" style="margin-bottom:1rem">Pré-visualização</div>
-          <div id="rel-preview-body"><div class="empty"><b>Selecciona os filtros e exporta</b></div></div>
+          <div class="card" id="rel-preview">
+            <div class="ct" style="margin-bottom:1rem">Resumo</div>
+            <div id="rel-preview-body"><div class="empty"><b>Selecciona os filtros</b></div></div>
+          </div>
         </div>
       </div>
 
@@ -984,9 +978,10 @@ async function carregarClientes(){ const {data}=await sb.from('clientes').select
 async function carregarGrupos(){
   const [{data:grps},{data:insc}]=await Promise.all([
     sb.from('grupos').select('*').order('nome'),
-    sb.from('inscricoes_grupo').select('grupo_id').eq('estado','ativa')
+    sb.from('inscricoes_grupo').select('*').eq('estado','ativa')
   ]);
   D.grupos=grps||[];
+  D.inscricoes_grupo=insc||[];
   // Contar inscritos por grupo
   D.inscricoes_grupo_count={};
   (insc||[]).forEach(i=>{
@@ -1014,7 +1009,16 @@ function goP(id,el){
   document.getElementById('tbtitle').textContent=TITLES[id]||id;
   if(id==='presencas') popularSelSessoes();
   if(id==='config'){ popularSelGrpLink(); renderPlanos(); aplicarBranding(); }
-  if(id==='relatorios'){ popularSelRelatorios(); }
+  if(id==='relatorios'){
+    popularSelRelatorios();
+    // Actualizar preview ao mudar filtros
+    setTimeout(()=>{
+      ['rel-mes','rel-prof','rel-grupo'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.onchange=actualizarPreviewRelatorio;
+      });
+    },100);
+  }
   closeSidebar();
 }
 
@@ -1061,38 +1065,104 @@ function popularSelSessoes(){
     }).join('');
 }
 function popularSelRelatorios(){
-  const sel=document.getElementById('rel-grupo');
-  if(sel) sel.innerHTML='<option value="">Todas as turmas</option>'+
+  const isAdmin=D.role==='admin';
+  // Professores — só admin vê o filtro de professor
+  const profWrap=document.getElementById('rel-prof-wrap');
+  if(profWrap) profWrap.style.display=isAdmin?'block':'none';
+  const selProf=document.getElementById('rel-prof');
+  if(selProf) selProf.innerHTML='<option value="">Todos os professores</option>'+
+    D.professores.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  // Se for professor, pré-seleccionar ele próprio
+  if(!isAdmin&&D.profId){
+    if(selProf) selProf.value=D.profId;
+  }
+  const selGrp=document.getElementById('rel-grupo');
+  if(selGrp) selGrp.innerHTML='<option value="">Todas as turmas</option>'+
     D.grupos.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('');
-  // Datas default — mês actual
-  const hoje=new Date();
-  const mesAtual=hoje.toISOString().slice(0,7);
-  const el=document.getElementById('rel-mes');
-  if(el&&!el.value) el.value=mesAtual;
-  const ini=document.getElementById('rel-inicio');
-  const fim=document.getElementById('rel-fim');
-  if(ini&&!ini.value) ini.value=hoje.getFullYear()+'-01-01';
-  if(fim&&!fim.value) fim.value=hoje.toISOString().slice(0,10);
-  // Pré-visualizar resumo
-  mostrarPreviewRelatorio();
+  // Mês actual por defeito
+  const mesEl=document.getElementById('rel-mes');
+  if(mesEl&&!mesEl.value) mesEl.value=new Date().toISOString().slice(0,7);
+  // Preview
+  actualizarPreviewRelatorio();
 }
 
-async function mostrarPreviewRelatorio(){
-  const pags=D.pagamentos;
+function calcularValoresPorProfessor(pags){
+  // Para cada pagamento, divide o valor pelos professores das turmas do cliente
+  const porProf={};
+  pags.forEach(p=>{
+    const val=parseFloat(p.valor)||0;
+    if(!val) return;
+    // Encontrar inscrições activas do cliente
+    const inscCli=(D.inscricoes_grupo||[]).filter(i=>i.cliente_id===p.cliente_id&&i.estado==='ativa');
+    if(!inscCli.length){
+      // Sem turma — atribuir ao professor da turma do pagamento ou geral
+      const k='geral';
+      porProf[k]=(porProf[k]||0)+val;
+      return;
+    }
+    // Dividir igualmente pelos professores das turmas
+    const profIds=[...new Set(inscCli.map(i=>{
+      const g=D.grupos.find(x=>x.id===i.grupo_id);
+      return g?.professor_id||'geral';
+    }))];
+    const parte=val/profIds.length;
+    profIds.forEach(pid=>{ porProf[pid]=(porProf[pid]||0)+parte; });
+  });
+  return porProf;
+}
+
+function actualizarPreviewRelatorio(){
+  const mes=document.getElementById('rel-mes')?.value||'';
+  const profId=document.getElementById('rel-prof')?.value||'';
+  const isAdmin=D.role==='admin';
+
+  let pags=D.pagamentos.filter(p=>{
+    const d=p.data_pag||p.created_at||'';
+    return !mes||d.startsWith(mes);
+  });
+
+  // Se professor, filtrar pelos seus clientes
+  if(!isAdmin&&D.profId){
+    const seusClientes=new Set(
+      (D.inscricoes_grupo||[])
+        .filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g?.professor_id===D.profId;})
+        .map(i=>i.cliente_id)
+    );
+    pags=pags.filter(p=>seusClientes.has(p.cliente_id));
+  } else if(profId){
+    const seusClientes=new Set(
+      (D.inscricoes_grupo||[])
+        .filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g?.professor_id===profId;})
+        .map(i=>i.cliente_id)
+    );
+    pags=pags.filter(p=>seusClientes.has(p.cliente_id));
+  }
+
   const total=pags.reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
   const pagos=pags.filter(p=>p.estado==='pago').reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
-  const pendentes=pags.filter(p=>p.estado!=='pago').reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const pendentes=total-pagos;
   const pct=parseFloat(D.cfg.parceiro_pct||0);
   const parceiro=D.cfg.parceiro_nome||'Parceiro';
-  const aPartilhar=pagos*(pct/100);
+  const aClinica=pagos*(pct/100);
+
+  // Por professor
+  const porProf=calcularValoresPorProfessor(pags.filter(p=>p.estado==='pago'));
+  const linhasProf=isAdmin&&!profId?Object.entries(porProf).map(([pid,val])=>{
+    const prof=D.professores.find(x=>x.id===pid);
+    return`<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid var(--bd)">
+      <span>${prof?.nome||'Geral'}</span>
+      <b>${val.toFixed(2)} €</b>
+    </div>`;
+  }).join(''):'';
+
   document.getElementById('rel-preview-body').innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:1rem">
-      <div class="metric"><div class="mlabel">Total facturado</div><div class="mval" style="font-size:20px">${total.toFixed(2)} €</div></div>
-      <div class="metric"><div class="mlabel">Recebido</div><div class="mval" style="font-size:20px;color:var(--green)">${pagos.toFixed(2)} €</div></div>
-      <div class="metric"><div class="mlabel">Pendente</div><div class="mval" style="font-size:20px;color:var(--amber)">${pendentes.toFixed(2)} €</div></div>
-      <div class="metric ac"><div class="mlabel">A pagar a ${parceiro} (${pct}%)</div><div class="mval" style="font-size:20px;color:var(--P)">${aPartilhar.toFixed(2)} €</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1rem">
+      <div class="metric"><div class="mlabel">Facturado</div><div class="mval" style="font-size:18px">${total.toFixed(2)} €</div></div>
+      <div class="metric"><div class="mlabel">Recebido</div><div class="mval" style="font-size:18px;color:var(--green)">${pagos.toFixed(2)} €</div></div>
+      <div class="metric"><div class="mlabel">Pendente</div><div class="mval" style="font-size:18px;color:var(--amber)">${pendentes.toFixed(2)} €</div></div>
+      ${isAdmin?`<div class="metric"><div class="mlabel">${parceiro} (${pct}%)</div><div class="mval" style="font-size:18px;color:var(--P)">${aClinica.toFixed(2)} €</div></div>`:''}
     </div>
-    <p style="font-size:12px;color:var(--t2)">Estes valores são globais. Usa os filtros acima para exportar por período ou turma.</p>
+    ${linhasProf?`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Por professor</div>${linhasProf}</div>`:''}
   `;
 }
 
@@ -1689,18 +1759,26 @@ function renderPlanos(){
 async function gerarRelatorioMensal(){
   const mes=document.getElementById('rel-mes').value;
   const grupoId=document.getElementById('rel-grupo').value;
+  const profId=document.getElementById('rel-prof')?.value||'';
+  const isAdmin=D.role==='admin';
   if(!mes){toast('Selecciona o mês','err');return;}
 
-  // Filtrar pagamentos
-  const [ano,m]=mes.split('-');
   let pags=D.pagamentos.filter(p=>{
     const d=p.data_pag||p.created_at||'';
     return d.startsWith(mes);
   });
+  // Filtrar por professor
+  const filterProfId=isAdmin?profId:D.profId;
+  if(filterProfId){
+    const seusClientes=new Set(
+      (D.inscricoes_grupo||[])
+        .filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g?.professor_id===filterProfId;})
+        .map(i=>i.cliente_id)
+    );
+    pags=pags.filter(p=>seusClientes.has(p.cliente_id));
+  }
   if(grupoId){
-    // Filtrar clientes da turma
-    const {data:inscGrp}=await sb.from('inscricoes_grupo').select('cliente_id').eq('grupo_id',grupoId).eq('estado','ativa');
-    const clientesGrp=new Set((inscGrp||[]).map(i=>i.cliente_id));
+    const clientesGrp=new Set((D.inscricoes_grupo||[]).filter(i=>i.grupo_id===grupoId&&i.estado==='ativa').map(i=>i.cliente_id));
     pags=pags.filter(p=>clientesGrp.has(p.cliente_id));
   }
 
@@ -1744,7 +1822,7 @@ async function gerarRelatorioMensal(){
   doc.text(safe(`Total recebido: ${pagos.toFixed(2)} EUR`),14,y+15);
   doc.setTextColor(83,74,183);
   doc.setFont('helvetica','bold');
-  doc.text(safe(`A pagar a ${parceiro} (${pct}%): ${aPartilhar.toFixed(2)} EUR`),14,y+22);
+  if(isAdmin) doc.text(safe(`A pagar a ${parceiro} (${pct}%): ${aPartilhar.toFixed(2)} EUR`),14,y+22);
 
   pdfFooter(doc);
   doc.save(`gestiok-relatorio-${mes}${grp?'-'+grp.nome.replace(/\s/g,'-'):''}.pdf`);
