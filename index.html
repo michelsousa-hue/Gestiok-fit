@@ -886,7 +886,7 @@ function verificarAdmin(){
   const err=document.getElementById('adm-err');
   err.style.display='none';
   if(aPin===(D.cfg.admin_pin||'1234')){
-    D.perfil='admin'; D.profLogado=null;
+    D.perfil='admin'; D.role='admin'; D.profId=null; D.profLogado=null;
     document.getElementById('uname').textContent='Admin';
     document.getElementById('uav').textContent='AD';
     document.getElementById('urole').textContent='Administrador';
@@ -920,6 +920,7 @@ function verificarProf(){
   const prof=D.professores.find(p=>p.id===profId);
   if(prof && prof.pin===pPin){
     D.perfil='professor'; D.profLogado=prof;
+    D.role='professor'; D.profId=prof.id;
     document.getElementById('uname').textContent=prof.nome;
     document.getElementById('uav').textContent=ini(prof.nome);
     document.getElementById('urole').textContent='Professor(a)';
@@ -1336,7 +1337,10 @@ async function guardarGrupo(){
 async function eliminarGrupo(id){if(!confirm('Eliminar grupo?'))return;await sb.from('grupos').delete().eq('id',id);toast('Eliminado','ok');await carregarGrupos();}
 function renderGrupos(){
   const tb=document.getElementById('tb-grp');if(!tb)return;
-  tb.innerHTML=D.grupos.length?D.grupos.map(g=>{
+  // Professor só vê as suas turmas
+  const isAdmin=D.role==='admin';
+  const gruposVisiveis=isAdmin?D.grupos:D.grupos.filter(g=>g.professor_id===D.profId);
+  tb.innerHTML=gruposVisiveis.length?gruposVisiveis.map(g=>{
     const prof=D.professores.find(p=>p.id===g.professor_id);
     const inscritos=D.inscricoes_grupo_count?.[g.id]||0;
     const pct=Math.round((inscritos/g.vagas_max)*100);
