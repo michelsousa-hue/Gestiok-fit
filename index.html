@@ -1506,12 +1506,11 @@ async function aprovarInsc(id){
   } else {
     // Extrair lesões e objectivos do campo obs
     const obsTexto=i.obs||'';
-    const lesMatch=obsTexto.match(/Lesões:\s*([^\n]+)/);
+    const lesMatch=obsTexto.match(/Les[oõ]es:\s*([^\n]+)/);
     const objMatch=obsTexto.match(/Objectivos:\s*([^\n]+)/);
     const lesoes=lesMatch?lesMatch[1].trim():null;
     const objectivos=objMatch?objMatch[1].trim():null;
-    // Obs limpa (sem lesões e objectivos já extraídos)
-    const obsLimpa=obsTexto.replace(/Lesões:[^\n]+\n?/,'').replace(/Objectivos:[^\n]+\n?/,'').trim()||null;
+    const obsLimpa=obsTexto.replace(/Les[oõ]es:[^\n]+\n?/,'').replace(/Objectivos:[^\n]+\n?/,'').trim()||null;
 
     const novoCli={
       id:uid(),
@@ -1724,7 +1723,7 @@ async function gerarRelatorioMensal(){
   const aPartilhar=pagos*(pct/100);
 
   doc.autoTable({
-    startY:32,
+    startY:36,
     head:[['Cliente','Descrição','Valor','Data','Estado']],
     body:pags.map(p=>{
       const c=D.clientes.find(x=>x.id===p.cliente_id);
@@ -1793,7 +1792,7 @@ async function gerarRelatorioGlobal(){
   const aPartilhar=pagos*(pct/100);
 
   doc.autoTable({
-    startY:32,
+    startY:36,
     head:[['Cliente','Descrição','Valor','Data','Estado']],
     body:pags.map(p=>{
       const c=D.clientes.find(x=>x.id===p.cliente_id);
@@ -1838,52 +1837,31 @@ function safe(str){
     .replace(/€/g, 'EUR');
 }
 
-async function makeCircularLogo(size=200){
-  return new Promise((res)=>{
-    const sbImg=document.getElementById('sbimg');
-    if(!sbImg||!sbImg.src||sbImg.src===window.location.href){res(null);return;}
-    const c=document.createElement('canvas');
-    c.width=size;c.height=size;
-    const ctx=c.getContext('2d');
-    ctx.beginPath();ctx.arc(size/2,size/2,size/2,0,Math.PI*2);ctx.closePath();ctx.clip();
-    const zoom=1.1;
-    const offset=(size-(size*zoom))/2;
-    try{
-      ctx.drawImage(sbImg,offset,offset,size*zoom,size*zoom);
-      res(c.toDataURL('image/png'));
-    }catch(e){res(null);}
-  });
-}
-
 async function pdfHeader(doc,titulo){
   const cor=D.cfg.org_cor||'#534AB7';
   const rgb=[cor.slice(1,3),cor.slice(3,5),cor.slice(5,7)].map(x=>parseInt(x,16));
-  const hoje=new Date().toLocaleDateString('pt-PT');
-
-  // Logótipo circular à esquerda
+  doc.setFillColor(...rgb); doc.rect(0,0,210,22,'F');
   let temLogo=false;
   try{
-    const logoCircular=await makeCircularLogo(300);
-    if(logoCircular){
-      doc.addImage(logoCircular,'PNG',8,4,20,20);
+    const sbImg=document.getElementById('sbimg');
+    if(sbImg&&sbImg.src&&sbImg.src!==window.location.href){
+      doc.addImage(sbImg,'PNG',7,3,16,16);
       temLogo=true;
     }
-  }catch(e){}
-
-  // Nome e subtítulo
-  const xNome=temLogo?34:14;
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(16);
-  doc.setTextColor(...rgb);
-  doc.text(safe(D.cfg.org_nome||'GestiOK')+' — '+safe(titulo),xNome,14);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(9);
-  doc.setTextColor(120,120,120);
-  doc.text(safe(D.cfg.org_sub||'Gestao de Aulas')+' · '+hoje,xNome,20);
-
-  // Linha colorida em baixo do cabeçalho
-  doc.setFillColor(...rgb);
-  doc.rect(0,26,210,1,'F');
+  }catch(e){
+    try{
+      const sbImg=document.getElementById('sbimg');
+      if(sbImg&&sbImg.src){ doc.addImage(sbImg,'JPEG',7,3,16,16); temLogo=true; }
+    }catch(e2){}
+  }
+  const xNome=temLogo?27:14;
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(13); doc.setFont('helvetica','bold');
+  doc.text(safe(D.cfg.org_nome||'GestiOK'),xNome,10);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text(safe(D.cfg.org_sub||'Gestao de Aulas'),xNome,17);
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text(safe(titulo),202,14,{align:'right'});
   doc.setTextColor(0);
 }
 function pdfFooter(doc){
@@ -1893,7 +1871,7 @@ function pdfFooter(doc){
 async function exportPagPDF(){
   const {jsPDF}=window.jspdf; const doc=new jsPDF();
   await pdfHeader(doc,'Pagamentos');
-  doc.autoTable({startY:32,head:[['Cliente','Descrição','Valor','Método','Data','Estado']],body:D.pagamentos.map(p=>{const c=D.clientes.find(x=>x.id===p.cliente_id);return[c?.nome||'—',p.descricao||'—',fmt(p.valor)+' €',p.metodo||'—',fmtData(p.data_pag),p.estado||'—'];}),headStyles:{fillColor:D.cfg.org_cor?D.cfg.org_cor.match(/\w\w/g).map(x=>parseInt(x,16)):[83,74,183],fontSize:8},bodyStyles:{fontSize:8},alternateRowStyles:{fillColor:[248,247,252]}});
+  doc.autoTable({startY:28,head:[['Cliente','Descrição','Valor','Método','Data','Estado']],body:D.pagamentos.map(p=>{const c=D.clientes.find(x=>x.id===p.cliente_id);return[c?.nome||'—',p.descricao||'—',fmt(p.valor)+' €',p.metodo||'—',fmtData(p.data_pag),p.estado||'—'];}),headStyles:{fillColor:D.cfg.org_cor?D.cfg.org_cor.match(/\w\w/g).map(x=>parseInt(x,16)):[83,74,183],fontSize:8},bodyStyles:{fontSize:8},alternateRowStyles:{fillColor:[248,247,252]}});
   pdfFooter(doc); doc.save('gestiok-pagamentos.pdf'); toast('PDF exportado!','ok');
 }
 async function exportPresPDF(){
@@ -1905,7 +1883,7 @@ async function exportPresPDF(){
   if(ses)doc.text(`${grp?.nome||'—'} · ${ses.data} ${ses.hora}`,14,26);
   const pres=D.presencas[sesId]||{};
   const rows=Object.entries(pres).map(([cid,est])=>{const c=D.clientes.find(x=>x.id===cid);return[c?.nome||'—',est==='presente'?'✓ Presente':'✗ Falta'];});
-  doc.autoTable({startY:32,head:[['Cliente','Presença']],body:rows,headStyles:{fillColor:[83,74,183],fontSize:9},bodyStyles:{fontSize:9}});
+  doc.autoTable({startY:36,head:[['Cliente','Presença']],body:rows,headStyles:{fillColor:[83,74,183],fontSize:9},bodyStyles:{fontSize:9}});
   pdfFooter(doc); doc.save('gestiok-presencas.pdf'); toast('PDF exportado!','ok');
 }
 
