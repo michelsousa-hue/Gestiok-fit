@@ -1078,8 +1078,9 @@ function popularSelRelatorios(){
     if(selProf) selProf.value=D.profId;
   }
   const selGrp=document.getElementById('rel-grupo');
+  const gruposFiltrados=isAdmin?D.grupos:D.grupos.filter(g=>g.professor_id===D.profId);
   if(selGrp) selGrp.innerHTML='<option value="">Todas as turmas</option>'+
-    D.grupos.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('');
+    gruposFiltrados.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('');
   // Mês actual por defeito
   const mesEl=document.getElementById('rel-mes');
   if(mesEl&&!mesEl.value) mesEl.value=new Date().toISOString().slice(0,7);
