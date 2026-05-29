@@ -1010,15 +1010,21 @@ async function renderPagamentos(){
   if(!lista)return;
   lista.innerHTML='<div style="color:var(--t3);padding:20px">A carregar...</div>';
 
+  // Carregar dados frescos do Supabase
+  const [{data:grpsData},{data:inscData},{data:pagsMes}]=await Promise.all([
+    sb.from('grupos').select('*').eq('ativo',true).order('hora'),
+    sb.from('inscricoes_grupo').select('*').eq('estado','ativa'),
+    sb.from('pagamentos').select('*').gte('data_pag',mes+'-01').lte('data_pag',mes+'-31')
+  ]);
+
+  // Actualizar D
+  if(grpsData) D.grupos=grpsData;
+  if(inscData) D.inscricoes_grupo=inscData;
+
   // Grupos visíveis
   const grupos=isAdmin?D.grupos:D.grupos.filter(g=>g.professor_id===D.profId);
 
-  // Carregar pagamentos do mês
-  const {data:pagsMes}=await sb.from('pagamentos')
-    .select('*')
-    .gte('data_pag', mes+'-01')
-    .lte('data_pag', mes+'-31');
-  const pagsMap={}; // cliente_id+grupo_id -> pagamento
+  const pagsMap={};
   (pagsMes||[]).forEach(p=>{ pagsMap[p.cliente_id+'_'+p.grupo_id]=p; });
 
   if(!grupos.length){lista.innerHTML='<div class="empty"><b>Sem turmas</b></div>';return;}
