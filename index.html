@@ -1608,21 +1608,6 @@ async function guardarPag(){
   await carregarPagamentos(); atualizarBadges();
 }
 async function eliminarPag(id){if(!confirm('Eliminar?'))return;await sb.from('pagamentos').delete().eq('id',id);toast('Eliminado','ok');await carregarPagamentos();}
-function renderPagamentos(){
-  const tb=document.getElementById('tb-pag');if(!tb)return;
-  tb.innerHTML=D.pagamentos.length?D.pagamentos.map(p=>{
-    const c=D.clientes.find(x=>x.id===p.cliente_id);
-    return`<tr>
-      <td><div class="tdn"><div class="avs">${ini(c?.nome||'?')}</div>${c?.nome||'—'}</div></td>
-      <td style="font-size:12px">${p.descricao||'—'}</td>
-      <td style="font-family:var(--m);font-weight:700">${fmt(p.valor)} €</td>
-      <td style="font-size:12px">${p.metodo||'—'}</td>
-      <td style="font-size:12px;color:var(--t2)">${fmtData(p.data_pag)}</td>
-      <td>${bdgE(p.estado)}</td>
-      <td><button class="btn btns btnd" onclick="eliminarPag('${p.id}')">🗑️</button></td>
-    </tr>`;
-  }).join(''):`<tr><td colspan="7"><div class="empty"><b>Sem pagamentos</b></div></td></tr>`;
-}
 
 // ════════════════════════════════════════════════════════
 // ESPERA
