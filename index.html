@@ -1064,7 +1064,7 @@ async function renderPagamentos(){
           <div style="font-size:11px;color:var(--t3)">${insc.dia_semana||''} · ${valor.toFixed(2)} €</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          <select class="fs" id="met-${cli.id}-${g.id}" style="width:120px;padding:6px 8px;font-size:12px" onchange="previewPag('${cli.id}','${g.id}')">
+          <select class="fs" id="met-${cli.id}-${g.id}" style="width:120px;padding:6px 8px;font-size:12px" onchange="actualizarMetodo('${cli.id}','${g.id}','${mes}')">
             <option value="" ${!metodo?'selected':''}>— Método —</option>
             <option value="MB Way" ${metodo==='MB Way'?'selected':''}>💳 MB Way</option>
             <option value="Transferência" ${metodo==='Transferência'?'selected':''}>🏦 Transferência</option>
@@ -1082,6 +1082,17 @@ async function renderPagamentos(){
   }
 
   lista.innerHTML=html||'<div class="empty"><b>Sem alunos inscritos</b></div>';
+}
+
+async function actualizarMetodo(clienteId, grupoId, mes){
+  const metodo=document.getElementById('met-'+clienteId+'-'+grupoId)?.value||'';
+  const {data:existing}=await sb.from('pagamentos')
+    .select('id').eq('cliente_id',clienteId).eq('grupo_id',grupoId)
+    .gte('data_pag',mes+'-01').lte('data_pag',mes+'-31').single();
+  if(existing?.id){
+    await sb.from('pagamentos').update({metodo:metodo||null}).eq('id',existing.id);
+    toast('Método actualizado!','ok');
+  }
 }
 
 async function regPag(clienteId, grupoId, mes, valor, estado){
