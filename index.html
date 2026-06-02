@@ -1250,7 +1250,15 @@ function renderDash(){
   document.getElementById('m-cli').textContent=D.clientes.filter(c=>c.estado==='ativo').length;
   const mes=new Date().getMonth();
   document.getElementById('m-ses').textContent=D.sessoes.filter(s=>s.data&&new Date(s.data).getMonth()===mes).length;
-  document.getElementById('m-pag').textContent=D.pagamentos.filter(p=>p.estado!=='pago').length;
+  const mesAtualBadge=new Date().toISOString().slice(0,7);
+  const isAdminB=D.role==='admin';
+  const seusCliB=!isAdminB&&D.profId?new Set((D.inscricoes_grupo||[]).filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g&&g.professor_id===D.profId;}).map(i=>i.cliente_id)):null;
+  document.getElementById('m-pag').textContent=D.pagamentos.filter(p=>{
+    if(p.estado==='pago'||p.estado==='isento') return false;
+    if(seusCliB&&!seusCliB.has(p.cliente_id)) return false;
+    const d=p.data_pag||p.created_at||'';
+    return d.startsWith(mesAtualBadge);
+  }).length;
   document.getElementById('m-esp').textContent=D.espera.length;
 
   // Próximas sessões
@@ -1262,8 +1270,19 @@ function renderDash(){
     return`<div class="arow"><div class="ahora">${s.hora||'--:--'}</div><div class="ainfo"><div class="anome">${g?.nome||'—'}</div><div class="adet">${s.data} · ${pr?.nome||'Sem professor'} · ${s.sala||''}</div></div>${bdgE(s.estado)}</div>`;
   }).join(''):'<div class="empty"><b>Sem sessões próximas</b></div>';
 
-  // Pagamentos pendentes
-  const pp=D.pagamentos.filter(p=>p.estado!=='pago').slice(0,5);
+  // Pagamentos pendentes — mês actual + filtro professor
+  const mesAtualStr=new Date().toISOString().slice(0,7);
+  const isAdminD=D.role==='admin';
+  const seusCliDash=!isAdminD&&D.profId?new Set(
+    (D.inscricoes_grupo||[]).filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g&&g.professor_id===D.profId;}).map(i=>i.cliente_id)
+  ):null;
+  const pp=D.pagamentos.filter(p=>{
+    if(p.estado==='pago'||p.estado==='isento') return false;
+    if(seusCliDash&&!seusCliDash.has(p.cliente_id)) return false;
+    // Só mostrar do mês actual
+    const d=p.data_pag||p.created_at||'';
+    return d.startsWith(mesAtualStr);
+  }).slice(0,5);
   document.getElementById('d-pag').innerHTML=pp.length?pp.map(p=>{
     const c=D.clientes.find(x=>x.id===p.cliente_id);
     return`<div class="pagrow"><div class="avs">${ini(c?.nome||'?')}</div><div class="pagnome">${c?.nome||'—'} <span style="color:var(--t3);font-size:11px">· ${p.descricao||p.tipo||'—'}</span></div><div class="pagval">${fmt(p.valor)} €</div>${bdgE(p.estado)}</div>`;
@@ -1319,18 +1338,30 @@ async function carregarTurmasCliente(cliId){
   const linhas=(inscs||[]).map(i=>{
     const g=D.grupos.find(x=>x.id===i.grupo_id);
     const estadoCor=i.estado==='ativa'?'var(--green)':i.estado==='pausada'?'var(--amber)':'var(--t3)';
-    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">
-      <div style="flex:1;min-width:140px">
-        <div style="font-size:13px;font-weight:600">${g?.nome||'—'} ${g?.hora||''}</div>
-        <div style="font-size:11px;color:var(--t3)">${i.dia_semana||''}</div>
+    const diasGrupo=(g?.dias_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
+    const diasSel=(i.dia_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
+    const freqAtual=i.tipo_aula&&i.tipo_aula.includes('1x')?'1x':'2x';
+    return`<div style="padding:10px 0;border-bottom:1px solid var(--bd)">
+      <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:140px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:6px">${g?.nome||'—'} ${g?.hora||''}</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            ${diasGrupo.map(d=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;font-weight:400;background:${diasSel.includes(d)?'var(--pbg)':'var(--s2)'};padding:3px 8px;border-radius:99px;border:1px solid ${diasSel.includes(d)?'var(--P)':'var(--bd)'}">
+              <input type="checkbox" class="dia-insc-chk" data-insc="${i.id}" data-cid="${cliId}" value="${d}" ${diasSel.includes(d)?'checked':''} onchange="alterarDiasInsc('${i.id}','${cliId}',this)" style="accent-color:var(--P)">
+              ${d}</label>`).join('')}
+            <select class="fs" style="width:75px;font-size:11px;padding:3px 6px" onchange="alterarFreqInsc('${i.id}',this.value,'${cliId}')">
+              <option value="1x" ${freqAtual==='1x'?'selected':''}>1×/sem</option>
+              <option value="2x" ${freqAtual==='2x'?'selected':''}>2×/sem</option>
+            </select>
+          </div>
+        </div>
+        <select class="fs" style="width:100px;font-size:11px;padding:4px 6px" onchange="alterarEstadoInsc('${i.id}',this.value,'${cliId}')">
+          <option value="ativa" ${i.estado==='ativa'?'selected':''}>✓ Ativa</option>
+          <option value="pausada" ${i.estado==='pausada'?'selected':''}>⏸ Pausada</option>
+          <option value="desistiu" ${i.estado==='desistiu'?'selected':''}>✗ Desistiu</option>
+        </select>
+        <button class="btn btns btnd" style="padding:4px 8px;font-size:11px" onclick="eliminarInscricaoGrupo('${i.id}','${cliId}')">🗑️</button>
       </div>
-      <span style="font-size:11px;font-weight:600;color:${estadoCor}">${i.estado}</span>
-      <select class="fs" style="width:100px;font-size:11px;padding:4px 6px" onchange="alterarEstadoInsc('${i.id}',this.value,'${cliId}')">
-        <option value="ativa" ${i.estado==='ativa'?'selected':''}>✓ Ativa</option>
-        <option value="pausada" ${i.estado==='pausada'?'selected':''}>⏸ Pausada</option>
-        <option value="desistiu" ${i.estado==='desistiu'?'selected':''}>✗ Desistiu</option>
-      </select>
-      <button class="btn btns btnd" style="padding:4px 8px;font-size:11px" onclick="eliminarInscricaoGrupo('${i.id}','${cliId}')">🗑️</button>
     </div>`;
   }).join('');
 
@@ -1364,6 +1395,22 @@ async function adicionarTurmaCliente(cliId){
   toast('Turma adicionada!','ok');
   carregarTurmasCliente(cliId);
   await carregarGrupos();
+}
+
+async function alterarDiasInsc(inscId, cliId, chk){
+  // Recolher todos os dias seleccionados desta inscrição
+  const checks=document.querySelectorAll('.dia-insc-chk[data-insc="'+inscId+'"]');
+  const dias=Array.from(checks).filter(c=>c.checked).map(c=>c.value);
+  if(!dias.length){toast('Selecciona pelo menos um dia','err');chk.checked=true;return;}
+  await sb.from('inscricoes_grupo').update({dia_semana:dias.join(',')}).eq('id',inscId);
+  toast('Dias actualizados!','ok');
+  await carregarGrupos();
+}
+
+async function alterarFreqInsc(inscId, freq, cliId){
+  await sb.from('inscricoes_grupo').update({tipo_aula:freq+'/semana'}).eq('id',inscId);
+  toast('Frequência actualizada!','ok');
+  carregarTurmasCliente(cliId);
 }
 
 async function alterarEstadoInsc(inscId, estado, cliId){
