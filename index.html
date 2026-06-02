@@ -420,10 +420,18 @@ tr:hover td{background:var(--s2)}
 
       <!-- PAGAMENTOS -->
       <div id="p-pagamentos" class="page">
-        <div class="card">
-          <div class="ch"><div class="ct">Pagamentos</div><div style="display:flex;gap:8px"><button class="btn btns" onclick="exportPagPDF()">📄 PDF</button><button class="btn btnp btns" onclick="abrPag()">+ Registar</button></div></div>
-          <div class="tw"><table><thead><tr><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Método</th><th>Data</th><th>Estado</th><th>Ações</th></tr></thead><tbody id="tb-pag"></tbody></table></div>
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:160px">
+              <label class="fl" style="margin-bottom:4px">Mês</label>
+              <input class="fi" id="pag-mes" type="month" onchange="renderPagamentos()">
+            </div>
+            <div style="margin-top:18px">
+              <button class="btn btns" onclick="exportPagPDF()">📄 PDF</button>
+            </div>
+          </div>
         </div>
+        <div id="pag-lista"></div>
       </div>
 
       <!-- ESPERA -->
@@ -595,6 +603,8 @@ tr:hover td{background:var(--s2)}
     </div>
     <div class="ficha-section" id="cli-turmas-section" style="display:none">Turmas inscritas</div>
     <div id="cli-turmas-lista" style="display:none"></div>
+    <div class="ficha-section" id="cli-turmas-section" style="display:none">Turmas inscritas</div>
+    <div id="cli-turmas-lista" style="display:none;margin-bottom:12px"></div>
     <div class="mf"><button class="btn" onclick="fM('m-cliente')">Cancelar</button><button class="btn btnp" onclick="guardarCliente()">Guardar</button></div>
   </div>
 </div>
@@ -894,7 +904,7 @@ function verificarAdmin(){
   const err=document.getElementById('adm-err');
   err.style.display='none';
   if(aPin===(D.cfg.admin_pin||'1234')){
-    D.perfil='admin'; D.profLogado=null;
+    D.perfil='admin'; D.profLogado=null; D.role='admin'; D.profId=null;
     document.getElementById('uname').textContent='Admin';
     document.getElementById('uav').textContent='AD';
     document.getElementById('urole').textContent='Administrador';
@@ -927,7 +937,7 @@ function verificarProf(){
   if(!profId){err.textContent='Seleciona o teu nome.';err.style.display='block';pPin='';updDots('pd',pPin);return;}
   const prof=D.professores.find(p=>p.id===profId);
   if(prof && prof.pin===pPin){
-    D.perfil='professor'; D.profLogado=prof;
+    D.perfil='professor'; D.profLogado=prof; D.role='professor'; D.profId=prof.id;
     document.getElementById('uname').textContent=prof.nome;
     document.getElementById('uav').textContent=ini(prof.nome);
     document.getElementById('urole').textContent='Professor(a)';
@@ -998,6 +1008,97 @@ async function carregarGrupos(){
 }
 async function carregarSessoes(){ const {data}=await sb.from('sessoes').select('*').order('data',{ascending:false}).order('hora'); D.sessoes=data||[]; renderSessoes(); }
 async function carregarProfessores(){ const {data}=await sb.from('professores').select('*').order('nome'); D.professores=data||[]; renderProfessores(); }
+// ════════════════════════════════════════════════════════
+// PAGAMENTOS — SISTEMA POR TURMA/MÊS
+// ════════════════════════════════════════════════════════
+async function renderPagamentos(){
+  const mes=document.getElementById('pag-mes')?.value||new Date().toISOString().slice(0,7);
+  const isAdmin=D.role==='admin';
+  const lista=document.getElementById('pag-lista');
+  if(!lista)return;
+  lista.innerHTML='<div style="color:var(--t3);padding:20px;text-align:center">A carregar...</div>';
+
+  // Carregar dados frescos
+  const [{data:grpsData},{data:inscData},{data:pagsMes}]=await Promise.all([
+    sb.from('grupos').select('*').eq('ativo',true).order('hora'),
+    sb.from('inscricoes_grupo').select('*').eq('estado','ativa'),
+    sb.from('pagamentos').select('*').gte('data_pag',mes+'-01').lte('data_pag',mes+'-31')
+  ]);
+  if(grpsData) D.grupos=grpsData;
+  if(inscData) D.inscricoes_grupo=inscData;
+
+  const grupos=isAdmin?D.grupos:D.grupos.filter(g=>g.professor_id===D.profId);
+  const pagsMap={};
+  (pagsMes||[]).forEach(p=>{ pagsMap[p.cliente_id+'_'+p.grupo_id]=p; });
+
+  if(!grupos.length){lista.innerHTML='<div class="empty"><b>Sem turmas</b></div>';return;}
+
+  let html='';
+  for(const g of grupos){
+    const prof=D.professores.find(p=>p.id===g.professor_id);
+    const inscritos=(D.inscricoes_grupo||[]).filter(i=>i.grupo_id===g.id);
+    if(!inscritos.length) continue;
+    html+=`<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-weight:700;font-size:15px">${g.nome}</div>
+          <div style="font-size:12px;color:var(--t3)">${g.hora||''} ${g.dias_semana||''} · ${prof?.nome||'—'}</div>
+        </div>
+        <div style="font-size:12px;color:var(--t3)">${inscritos.length} aluno${inscritos.length!==1?'s':''}</div>
+      </div>`;
+    for(const insc of inscritos){
+      const cli=D.clientes.find(c=>c.id===insc.cliente_id);
+      if(!cli) continue;
+      const freq=insc.tipo_aula||'';
+      const valor=freq.includes('1x')?(parseFloat(g.preco_mensal_1x)||0):(parseFloat(g.preco_mensal_2x)||0);
+      const pag=pagsMap[cli.id+'_'+g.id];
+      const estado=pag?.estado||'pendente';
+      const metodo=pag?.metodo||'';
+      const eCor={pago:'#3B6D11',pendente:'#854F0B',parcial:'#185FA5',isento:'#6B7280'};
+      const eBg={pago:'#EAF3DE',pendente:'#FAEEDA',parcial:'#E6F1FB',isento:'#F3F4F6'};
+      html+=`<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">
+        <div style="flex:1;min-width:120px">
+          <div style="font-size:13px;font-weight:600">${cli.nome}</div>
+          <div style="font-size:11px;color:var(--t3)">${insc.dia_semana||''} · ${valor.toFixed(2)} €</div>
+        </div>
+        <select class="fs" id="met-${cli.id}-${g.id}" style="width:120px;padding:5px 8px;font-size:12px" onchange="actualizarMetodo('${cli.id}','${g.id}','${mes}')">
+          <option value="" ${!metodo?'selected':''}>— Método —</option>
+          <option value="MB Way" ${metodo==='MB Way'?'selected':''}>💳 MB Way</option>
+          <option value="Transferência" ${metodo==='Transferência'?'selected':''}>🏦 Transferência</option>
+          <option value="Dinheiro" ${metodo==='Dinheiro'?'selected':''}>💵 Dinheiro</option>
+          <option value="Outro" ${metodo==='Outro'?'selected':''}>Outro</option>
+        </select>
+        <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='pago'?'background:'+eBg['pago']+';color:'+eCor['pago']+';border-color:'+eCor['pago']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'pago')">✓ Pago</button>
+        <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='parcial'?'background:'+eBg['parcial']+';color:'+eCor['parcial']+';border-color:'+eCor['parcial']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'parcial')">~ Parcial</button>
+        <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='pendente'?'background:'+eBg['pendente']+';color:'+eCor['pendente']+';border-color:'+eCor['pendente']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'pendente')">⏳ Pendente</button>
+        <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='isento'?'background:'+eBg['isento']+';color:'+eCor['isento']+';border-color:'+eCor['isento']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'isento')">○ Isento</button>
+      </div>`;
+    }
+    html+='</div>';
+  }
+  lista.innerHTML=html||'<div class="empty"><b>Sem alunos inscritos</b></div>';
+}
+
+async function actualizarMetodo(clienteId,grupoId,mes){
+  const metodo=document.getElementById('met-'+clienteId+'-'+grupoId)?.value||'';
+  const {data:existing}=await sb.from('pagamentos').select('id').eq('cliente_id',clienteId).eq('grupo_id',grupoId).gte('data_pag',mes+'-01').lte('data_pag',mes+'-31').single();
+  if(existing?.id){ await sb.from('pagamentos').update({metodo:metodo||null}).eq('id',existing.id); toast('Método actualizado!','ok'); }
+}
+
+async function regPag(clienteId,grupoId,mes,valor,estado){
+  const metodo=document.getElementById('met-'+clienteId+'-'+grupoId)?.value||'';
+  const dataRef=mes+'-01';
+  const {data:existing}=await sb.from('pagamentos').select('id').eq('cliente_id',clienteId).eq('grupo_id',grupoId).gte('data_pag',mes+'-01').lte('data_pag',mes+'-31').single();
+  const g=D.grupos.find(x=>x.id===grupoId);
+  const record={cliente_id:clienteId,grupo_id:grupoId,descricao:`Mensalidade ${new Date(dataRef).toLocaleDateString('pt-PT',{month:'long',year:'numeric'})} — ${g?.nome||''}`,valor,metodo:metodo||null,estado,data_pag:dataRef};
+  if(existing?.id){ await sb.from('pagamentos').update(record).eq('id',existing.id); }
+  else { await sb.from('pagamentos').insert({id:uid(),...record}); }
+  await carregarPagamentos();
+  renderPagamentos();
+  toast(estado==='pago'?'Pago!':'Estado actualizado!','ok');
+}
+
+
 async function carregarPagamentos(){ const {data}=await sb.from('pagamentos').select('*').order('created_at',{ascending:false}); D.pagamentos=data||[]; }
 async function carregarEspera(){ const {data}=await sb.from('espera').select('*').order('created_at'); D.espera=data||[]; renderEspera(); }
 async function carregarComunicados(){ const {data}=await sb.from('comunicados').select('*').order('created_at',{ascending:false}); D.comunicados=data||[]; renderComunicados(); }
@@ -1017,6 +1118,11 @@ function goP(id,el){
   if(id==='presencas') popularSelSessoes();
   if(id==='config'){ popularSelGrpLink(); renderPlanos(); aplicarBranding(); }
   if(id==='relatorios'){ popularSelRelatorios(); }
+  if(id==='pagamentos'){
+    const mesEl=document.getElementById('pag-mes');
+    if(mesEl&&!mesEl.value) mesEl.value=new Date().toISOString().slice(0,7);
+    renderPagamentos();
+  }
   closeSidebar();
 }
 
@@ -1178,37 +1284,26 @@ function abrCliente(c=null){
   document.getElementById('f-cli-med').value=c?.medicacao||'';
   document.getElementById('f-cli-obs').value=c?.obs||'';
   document.getElementById('m-cli-title').textContent=c?'Editar cliente':'Novo cliente';
-  // Carregar turmas se editar cliente existente
-  const turmasSection=document.getElementById('cli-turmas-section');
-  const turmasLista=document.getElementById('cli-turmas-lista');
-  if(c&&turmasSection&&turmasLista){
-    turmasSection.style.display='block';
-    turmasLista.style.display='block';
-    carregarTurmasCliente(c.id);
-  } else if(turmasSection){
-    turmasSection.style.display='none';
-    turmasLista.style.display='none';
-  }
+  const ts=document.getElementById('cli-turmas-section');
+  const tl=document.getElementById('cli-turmas-lista');
+  if(c&&ts&&tl){ ts.style.display='block'; tl.style.display='block'; carregarTurmasCliente(c.id); }
+  else if(ts){ ts.style.display='none'; if(tl) tl.style.display='none'; }
   oM('m-cliente');
 }
 
 async function carregarTurmasCliente(cliId){
   const lista=document.getElementById('cli-turmas-lista');
   const {data:inscs}=await sb.from('inscricoes_grupo').select('*').eq('cliente_id',cliId);
-  // Turmas já inscritas
   const inscIds=new Set((inscs||[]).map(i=>i.grupo_id));
-  const turmasDisponiveis=D.grupos.filter(g=>g.ativo&&!inscIds.has(g.id));
-
+  const disponiveis=D.grupos.filter(g=>g.ativo&&!inscIds.has(g.id));
   const linhas=(inscs||[]).map(i=>{
     const g=D.grupos.find(x=>x.id===i.grupo_id);
-    const estadoCor=i.estado==='ativa'?'var(--green)':i.estado==='pausada'?'var(--amber)':'var(--t3)';
     return`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">
-      <div style="flex:1;min-width:140px">
+      <div style="flex:1;min-width:130px">
         <div style="font-size:13px;font-weight:600">${g?.nome||'—'} ${g?.hora||''}</div>
         <div style="font-size:11px;color:var(--t3)">${i.dia_semana||''}</div>
       </div>
-      <span style="font-size:11px;font-weight:600;color:${estadoCor}">${i.estado}</span>
-      <select class="fs" style="width:100px;font-size:11px;padding:4px 6px" onchange="alterarEstadoInsc('${i.id}',this.value,'${cliId}')">
+      <select class="fs" style="width:105px;font-size:11px;padding:4px 6px" onchange="alterarEstadoInsc('${i.id}',this.value,'${cliId}')">
         <option value="ativa" ${i.estado==='ativa'?'selected':''}>✓ Ativa</option>
         <option value="pausada" ${i.estado==='pausada'?'selected':''}>⏸ Pausada</option>
         <option value="desistiu" ${i.estado==='desistiu'?'selected':''}>✗ Desistiu</option>
@@ -1216,87 +1311,41 @@ async function carregarTurmasCliente(cliId){
       <button class="btn btns btnd" style="padding:4px 8px;font-size:11px" onclick="eliminarInscricaoGrupo('${i.id}','${cliId}')">🗑️</button>
     </div>`;
   }).join('');
-
-  // Botão para adicionar nova turma
-  const addTurma=turmasDisponiveis.length>0?`
-    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <select class="fs" id="add-turma-sel-${cliId}" style="flex:1;font-size:12px">
-        <option value="">— Escolher turma —</option>
-        ${turmasDisponiveis.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('')}
-      </select>
-      <button class="btn btnp" style="font-size:12px;padding:6px 12px" onclick="adicionarTurmaCliente('${cliId}')">+ Adicionar</button>
-    </div>`:'';
-
-  lista.innerHTML=(inscs?.length?linhas:'<div style="font-size:13px;color:var(--t3);padding:8px 0">Sem turmas inscritas</div>')+addTurma;
+  const addHtml=disponiveis.length?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+    <select class="fs" id="add-turma-${cliId}" style="flex:1;font-size:12px">
+      <option value="">— Adicionar turma —</option>
+      ${disponiveis.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('')}
+    </select>
+    <button class="btn btnp" style="font-size:12px;padding:6px 12px" onclick="adicionarTurmaCliente('${cliId}')">+ Adicionar</button>
+  </div>`:'';
+  lista.innerHTML=(inscs?.length?linhas:'<div style="font-size:13px;color:var(--t3);padding:6px 0">Sem turmas inscritas</div>')+addHtml;
 }
 
 async function adicionarTurmaCliente(cliId){
-  const sel=document.getElementById('add-turma-sel-'+cliId);
-  const grupoId=sel?.value;
-  if(!grupoId){toast('Escolhe uma turma','err');return;}
+  const sel=document.getElementById('add-turma-'+cliId);
+  const grupoId=sel?.value; if(!grupoId){toast('Escolhe uma turma','err');return;}
   const g=D.grupos.find(x=>x.id===grupoId);
   const dias=(g?.dias_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
-  await sb.from('inscricoes_grupo').insert({
-    id:uid(),
-    cliente_id:cliId,
-    grupo_id:grupoId,
-    estado:'ativa',
-    dia_semana:dias.join(','),
-    data_inicio:new Date().toISOString().slice(0,10)
-  });
+  await sb.from('inscricoes_grupo').insert({id:uid(),cliente_id:cliId,grupo_id:grupoId,estado:'ativa',dia_semana:dias.join(','),data_inicio:new Date().toISOString().slice(0,10)});
   toast('Turma adicionada!','ok');
   carregarTurmasCliente(cliId);
   await carregarGrupos();
 }
 
-async function alterarEstadoInsc(inscId, estado, cliId){
+async function alterarEstadoInsc(inscId,estado,cliId){
   await sb.from('inscricoes_grupo').update({estado}).eq('id',inscId);
   toast('Estado actualizado!','ok');
   carregarTurmasCliente(cliId);
   await carregarGrupos();
 }
 
-async function eliminarInscricaoGrupo(inscId, cliId){
-  if(!confirm('Remover desta turma?')) return;
+async function eliminarInscricaoGrupo(inscId,cliId){
+  if(!confirm('Remover desta turma?'))return;
   await sb.from('inscricoes_grupo').delete().eq('id',inscId);
-  toast('Removido da turma!','ok');
+  toast('Removido!','ok');
   carregarTurmasCliente(cliId);
   await carregarGrupos();
 }
-async function guardarCliente(){
-  const id=document.getElementById('f-cli-id').value;
-  const d={nome:document.getElementById('f-cli-nome').value.trim(),email:document.getElementById('f-cli-email').value.trim()||null,telemovel:document.getElementById('f-cli-tel').value.trim()||null,data_nasc:document.getElementById('f-cli-nasc').value||null,nif:document.getElementById('f-cli-nif').value.trim()||null,morada:document.getElementById('f-cli-morada').value.trim()||null,estado:document.getElementById('f-cli-estado').value,nivel:document.getElementById('f-cli-nivel').value,objectivos:document.getElementById('f-cli-obj').value.trim()||null,lesoes:document.getElementById('f-cli-lesoes').value.trim()||null,medicacao:document.getElementById('f-cli-med').value.trim()||null,obs:document.getElementById('f-cli-obs').value.trim()||null};
-  if(!d.nome){toast('Preenche o nome','err');return;}
-  let err;
-  if(id){({error:err}=await sb.from('clientes').update(d).eq('id',id));}
-  else{d.id=uid();({error:err}=await sb.from('clientes').insert(d));}
-  if(err){toast('Erro: '+err.message,'err');return;}
-  fM('m-cliente'); toast(id?'Cliente atualizado!':'Cliente criado!','ok');
-  await carregarClientes(); atualizarBadges();
-}
-async function eliminarCliente(id){if(!confirm('Eliminar cliente?'))return;await sb.from('clientes').delete().eq('id',id);toast('Eliminado','ok');await carregarClientes();}
-function renderClientes(){
-  const tb=document.getElementById('tb-cli');if(!tb)return;
-  const nivelBdg={iniciante:'bgr',intermedio:'ba',avancado:'bp'};
-  const isAdmin=D.role==='admin';
-  const seusCliIds=!isAdmin&&D.profId?new Set(
-    (D.inscricoes_grupo||[])
-      .filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g?.professor_id===D.profId;})
-      .map(i=>i.cliente_id)
-  ):null;
-  const clientesVisiveis=seusCliIds?D.clientes.filter(c=>seusCliIds.has(c.id)):D.clientes;
-  tb.innerHTML=clientesVisiveis.length?clientesVisiveis.map(c=>`<tr>
-    <td><div class="tdn"><div class="av">${ini(c.nome)}</div>${c.nome}</div></td>
-    <td style="font-size:12px;color:var(--t2)">${c.email||'—'}<br>${c.telemovel||''}</td>
-    <td><span class="badge ${nivelBdg[c.nivel]||'bgr'}">${c.nivel||'iniciante'}</span></td>
-    <td>${bdgE(c.estado)}</td>
-    <td><div style="display:flex;gap:4px">
-      <button class="btn btns" onclick='abrCliente(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️</button>
-      <button class="btn btns btnd" onclick="eliminarCliente('${c.id}')">🗑️</button>
-    </div></td>
-  </tr>`).join(''):`<tr><td colspan="5"><div class="empty"><b>Sem clientes</b><span>Clica em "Novo cliente"</span></div></td></tr>`;
-}
-
 // ════════════════════════════════════════════════════════
 // GRUPOS
 // ════════════════════════════════════════════════════════
@@ -1639,7 +1688,14 @@ async function moverEsperaInsc(id){
 }
 function renderInscricoes(){
   const tb=document.getElementById('tb-insc');if(!tb)return;
-  tb.innerHTML=D.inscricoes.length?D.inscricoes.map(i=>`<tr>
+  const isAdmin=D.role==='admin';
+  // Professor só vê inscrições das suas turmas
+  const inscVisiveis=isAdmin?D.inscricoes:D.inscricoes.filter(i=>{
+    if(!i.grupo_id) return false;
+    const g=D.grupos.find(x=>x.id===i.grupo_id);
+    return g?.professor_id===D.profId;
+  });
+  tb.innerHTML=inscVisiveis.length?inscVisiveis.map(i=>`<tr>
     <td><div class="tdn"><div class="avs">${ini(i.nome)}</div>${i.nome}</div></td>
     <td style="font-size:12px">${i.email||'—'}<br>${i.telemovel||''}</td>
     <td style="font-size:12px">${i.tipo_aula||'—'}</td>
