@@ -990,7 +990,7 @@ async function carregarTudo(){
     carregarClientes(), carregarSessoes(), carregarPagamentos(),
     carregarEspera(), carregarComunicados(), carregarInscricoes(), carregarPlanos()
   ]);
-  renderDash(); actualizarBadges();
+  renderDash(); atualizarBadges();
 }
 async function carregarClientes(){ const {data}=await sb.from('clientes').select('*').order('nome'); D.clientes=data||[]; renderClientes(); }
 async function carregarGrupos(){
@@ -1007,7 +1007,87 @@ async function carregarGrupos(){
   renderGrupos(); popularSels();
 }
 async function carregarSessoes(){ const {data}=await sb.from('sessoes').select('*').order('data',{ascending:false}).order('hora'); D.sessoes=data||[]; renderSessoes(); }
-async function carregarProfessores(){ const {data}=await sb.from('professores').select('*').order('nome'); D.professores=data||[]; renderProfessores(); }
+async function carregarProfessores(){ const {data}=await sb.from('professores').select('*').order('nome'); D.professores=data||[]; renderProfessores(); }// ════════════════════════════════════════════════════════
+// PAGAMENTOS — SISTEMA POR TURMA/MÊS
+// ════════════════════════════════════════════════════════
+async function renderPagamentos(){
+  const mes=document.getElementById('pag-mes')?.value||new Date().toISOString().slice(0,7);
+  const isAdmin=D.role==='admin';
+  const lista=document.getElementById('pag-lista');
+  if(!lista)return;
+  lista.innerHTML='<div style="color:var(--t3);padding:20px;text-align:center">A carregar...</div>';
+  const [r1,r2,r3]=await Promise.all([
+    sb.from('grupos').select('*').eq('ativo',true).order('hora'),
+    sb.from('inscricoes_grupo').select('*').eq('estado','ativa'),
+    sb.from('pagamentos').select('*').gte('data_pag',mes+'-01').lte('data_pag',mes+'-31')
+  ]);
+  if(r1.data) D.grupos=r1.data;
+  if(r2.data) D.inscricoes_grupo=r2.data;
+  const grupos=isAdmin?D.grupos:D.grupos.filter(g=>g.professor_id===D.profId);
+  const pagsMap={};
+  (r3.data||[]).forEach(p=>{pagsMap[p.cliente_id+'_'+p.grupo_id]=p;});
+  if(!grupos.length){lista.innerHTML='<div class="empty"><b>Sem turmas</b></div>';return;}
+  let html='';
+  for(const g of grupos){
+    const prof=D.professores.find(p=>p.id===g.professor_id);
+    const inscritos=(D.inscricoes_grupo||[]).filter(i=>i.grupo_id===g.id);
+    if(!inscritos.length) continue;
+    html+='<div class="card" style="margin-bottom:12px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div><div style="font-weight:700;font-size:15px">'+g.nome+'</div><div style="font-size:12px;color:var(--t3)">'+(g.hora||'')+' '+(g.dias_semana||'')+' \u00b7 '+(prof?prof.nome:'—')+'</div></div><div style="font-size:12px;color:var(--t3)">'+inscritos.length+' aluno'+(inscritos.length!==1?'s':'')+'</div></div>';
+    for(const insc of inscritos){
+      const cli=D.clientes.find(c=>c.id===insc.cliente_id);
+      if(!cli) continue;
+      const freq=insc.tipo_aula||'';
+      const valor=freq.includes('1x')?(parseFloat(g.preco_mensal_1x)||0):(parseFloat(g.preco_mensal_2x)||0);
+      const pag=pagsMap[cli.id+'_'+g.id];
+      const estado=pag?pag.estado:'pendente';
+      const metodo=pag?pag.metodo:'';
+      const eCor={pago:'#3B6D11',pendente:'#854F0B',parcial:'#185FA5',isento:'#6B7280'};
+      const eBg={pago:'#EAF3DE',pendente:'#FAEEDA',parcial:'#E6F1FB',isento:'#F3F4F6'};
+      const bs=function(e){return estado===e?'background:'+eBg[e]+';color:'+eCor[e]+';border-color:'+eCor[e]:'';};
+      const cid=cli.id, gid=g.id;
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">'+
+        '<div style="flex:1;min-width:120px"><div style="font-size:13px;font-weight:600">'+cli.nome+'</div>'+
+        '<div style="font-size:11px;color:var(--t3)">'+(insc.dia_semana||'')+' · '+(valor>0?valor.toFixed(2)+' €':'—')+'</div></div>'+
+        '<select class="fs" id="met-'+cid+'-'+gid+'" style="width:120px;padding:5px 8px;font-size:12px" onchange="aMetPag(\''+cid+'\',\''+gid+'\',\''+mes+'\')">'+
+          '<option value=""'+(metodo?'':' selected')+'>— Método —</option>'+
+          '<option value="MB Way"'+(metodo==='MB Way'?' selected':'')+'>💳 MB Way</option>'+
+          '<option value="Transferência"'+(metodo==='Transferência'?' selected':'')+'>🏦 Transferência</option>'+
+          '<option value="Dinheiro"'+(metodo==='Dinheiro'?' selected':'')+'>💵 Dinheiro</option>'+
+          '<option value="Outro"'+(metodo==='Outro'?' selected':'')+'>Outro</option>'+
+        '</select>'+
+        '<button class="btn btns" style="font-size:11px;padding:5px 8px;'+bs('pago')+'" onclick="rPag(\''+cid+'\',\''+gid+'\',\''+mes+'\','+valor+',\'pago\')">✓ Pago</button>'+
+        '<button class="btn btns" style="font-size:11px;padding:5px 8px;'+bs('parcial')+'" onclick="rPag(\''+cid+'\',\''+gid+'\',\''+mes+'\','+valor+',\'parcial\')">~ Parcial</button>'+
+        '<button class="btn btns" style="font-size:11px;padding:5px 8px;'+bs('pendente')+'" onclick="rPag(\''+cid+'\',\''+gid+'\',\''+mes+'\','+valor+',\'pendente\')">⏳ Pendente</button>'+
+        '<button class="btn btns" style="font-size:11px;padding:5px 8px;'+bs('isento')+'" onclick="rPag(\''+cid+'\',\''+gid+'\',\''+mes+'\','+valor+',\'isento\')">○ Isento</button>'+
+      '</div>';
+    }
+    html+='</div>';
+  }
+  lista.innerHTML=html||'<div class="empty"><b>Sem alunos inscritos</b></div>';
+}
+
+async function aMetPag(cliId,grupoId,mes){
+  const el=document.getElementById('met-'+cliId+'-'+grupoId);
+  const v=el?el.value:'';
+  const {data:ex}=await sb.from('pagamentos').select('id').eq('cliente_id',cliId).eq('grupo_id',grupoId).gte('data_pag',mes+'-01').lte('data_pag',mes+'-31').maybeSingle();
+  if(ex&&ex.id){await sb.from('pagamentos').update({metodo:v||null}).eq('id',ex.id);toast('Método guardado!','ok');}
+}
+
+async function rPag(cliId,grupoId,mes,valor,estado){
+  const el=document.getElementById('met-'+cliId+'-'+grupoId);
+  const metodo=el?el.value:'';
+  const dataRef=mes+'-01';
+  const {data:ex}=await sb.from('pagamentos').select('id').eq('cliente_id',cliId).eq('grupo_id',grupoId).gte('data_pag',mes+'-01').lte('data_pag',mes+'-31').maybeSingle();
+  const g=D.grupos.find(x=>x.id===grupoId);
+  const rec={cliente_id:cliId,grupo_id:grupoId,descricao:'Mensalidade '+new Date(dataRef).toLocaleDateString('pt-PT',{month:'long',year:'numeric'})+' — '+(g?g.nome:''),valor,metodo:metodo||null,estado,data_pag:dataRef};
+  if(ex&&ex.id){await sb.from('pagamentos').update(rec).eq('id',ex.id);}
+  else{await sb.from('pagamentos').insert(Object.assign({id:uid()},rec));}
+  await carregarPagamentos();
+  renderPagamentos();
+  toast(estado==='pago'?'✓ Pago!':'Estado actualizado!','ok');
+}
+
+
 async function carregarPagamentos(){ const {data}=await sb.from('pagamentos').select('*').order('created_at',{ascending:false}); D.pagamentos=data||[]; }
 async function carregarEspera(){ const {data}=await sb.from('espera').select('*').order('created_at'); D.espera=data||[]; renderEspera(); }
 async function carregarComunicados(){ const {data}=await sb.from('comunicados').select('*').order('created_at',{ascending:false}); D.comunicados=data||[]; renderComunicados(); }
