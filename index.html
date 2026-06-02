@@ -1043,7 +1043,17 @@ async function renderPagamentos(){
       const cli=D.clientes.find(function(c){return c.id===insc.cliente_id;});
       if(!cli) continue;
       const freq=insc.tipo_aula||'';
-      const valor=freq.indexOf('1x')>=0?(parseFloat(g.preco_mensal_1x)||0):(parseFloat(g.preco_mensal_2x)||0);
+      // Contar quantas turmas activas este cliente tem
+      const nTurmas=(D.inscricoes_grupo||[]).filter(function(x){return x.cliente_id===insc.cliente_id&&x.estado==='ativa';}).length;
+      let valor;
+      if(nTurmas>=2){
+        // 2 ou mais turmas — divide o preço 2x pelo número de turmas
+        const preco2x=parseFloat(g.preco_mensal_2x)||0;
+        valor=preco2x>0?preco2x/nTurmas:0;
+      } else {
+        // 1 turma — preço normal conforme frequência
+        valor=freq.indexOf('1x')>=0?(parseFloat(g.preco_mensal_1x)||0):(parseFloat(g.preco_mensal_2x)||0);
+      }
       const pag=pagsMap[cli.id+'_'+g.id];
       const estado=pag?pag.estado:'pendente';
       const metodo=pag?pag.metodo:'';
