@@ -1091,11 +1091,21 @@ async function rPg(cliId,grupoId,inicio,fim,valor,estado){
   const el=document.getElementById('met-'+cliId+'-'+grupoId);
   const metodo=el?el.value:'';
   const dataRef=inicio+'-01';
-  const r=await sb.from('pagamentos').select('id').eq('cliente_id',cliId).eq('grupo_id',grupoId).gte('data_pag',dataRef).lte('data_pag',fim).maybeSingle();
+  // Apagar todos os registos duplicados do mesmo cliente/grupo/mês e inserir um único
   const g=D.grupos.find(function(x){return x.id===grupoId;});
   const rec={cliente_id:cliId,grupo_id:grupoId,descricao:'Mensalidade '+new Date(dataRef).toLocaleDateString('pt-PT',{month:'long',year:'numeric'})+' — '+(g?g.nome:''),valor:valor,metodo:metodo||null,estado:estado,data_pag:dataRef};
-  if(r.data&&r.data.id){await sb.from('pagamentos').update(rec).eq('id',r.data.id);}
-  else{const ins=Object.assign({id:uid()},rec);await sb.from('pagamentos').insert(ins);}
+  // Buscar todos os registos existentes para este mês
+  const {data:existentes}=await sb.from('pagamentos').select('id').eq('cliente_id',cliId).eq('grupo_id',grupoId).gte('data_pag',dataRef).lte('data_pag',fim);
+  if(existentes&&existentes.length>0){
+    // Actualizar o primeiro e apagar os restantes
+    await sb.from('pagamentos').update(rec).eq('id',existentes[0].id);
+    if(existentes.length>1){
+      const idsApagar=existentes.slice(1).map(function(e){return e.id;});
+      await sb.from('pagamentos').delete().in('id',idsApagar);
+    }
+  } else {
+    await sb.from('pagamentos').insert(Object.assign({id:uid()},rec));
+  }
   await carregarPagamentos();
   renderPagamentos();
   toast(estado==='pago'?'Pago!':'Estado actualizado!','ok');
