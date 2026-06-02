@@ -426,7 +426,7 @@ tr:hover td{background:var(--s2)}
               <label class="fl" style="margin-bottom:4px">Mês</label>
               <input class="fi" id="pag-mes" type="month" onchange="renderPagamentos()">
             </div>
-            <div style="margin-top:18px">
+            <div style="display:flex;gap:8px;margin-top:18px">
               <button class="btn btns" onclick="exportPagPDF()">📄 PDF</button>
             </div>
           </div>
@@ -462,35 +462,29 @@ tr:hover td{background:var(--s2)}
       <div id="p-relatorios" class="page">
         <div class="g2">
           <div class="card">
-            <div class="ct" style="margin-bottom:1rem">Relatório mensal</div>
+            <div class="ct" style="margin-bottom:1rem">Filtros</div>
             <div class="fg"><label class="fl">Mês</label>
               <input class="fi" id="rel-mes" type="month" value="">
+            </div>
+            <div class="fg" id="rel-prof-wrap"><label class="fl">Professor</label>
+              <select class="fs" id="rel-prof">
+                <option value="">Todos os professores</option>
+              </select>
             </div>
             <div class="fg"><label class="fl">Turma</label>
               <select class="fs" id="rel-grupo">
                 <option value="">Todas as turmas</option>
               </select>
             </div>
-            <button class="btn btnp" style="width:100%;margin-top:4px" onclick="gerarRelatorioMensal()">
-              📄 Exportar PDF mensal
-            </button>
-          </div>
-          <div class="card">
-            <div class="ct" style="margin-bottom:1rem">Relatório global acumulado</div>
-            <div class="fg"><label class="fl">Data início</label>
-              <input class="fi" id="rel-inicio" type="date">
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button class="btn btnp" style="flex:1" onclick="gerarRelatorioMensal()">📄 PDF mensal</button>
+              <button class="btn btns" style="flex:1" onclick="gerarRelatorioGlobal()">📄 PDF global</button>
             </div>
-            <div class="fg"><label class="fl">Data fim</label>
-              <input class="fi" id="rel-fim" type="date">
-            </div>
-            <button class="btn btnp" style="width:100%;margin-top:4px" onclick="gerarRelatorioGlobal()">
-              📄 Exportar PDF global
-            </button>
           </div>
-        </div>
-        <div class="card" id="rel-preview">
-          <div class="ct" style="margin-bottom:1rem">Pré-visualização</div>
-          <div id="rel-preview-body"><div class="empty"><b>Selecciona os filtros e exporta</b></div></div>
+          <div class="card" id="rel-preview">
+            <div class="ct" style="margin-bottom:1rem">Resumo</div>
+            <div id="rel-preview-body"><div class="empty"><b>Selecciona os filtros</b></div></div>
+          </div>
         </div>
       </div>
 
@@ -601,10 +595,6 @@ tr:hover td{background:var(--s2)}
       <div class="fg"><label class="fl">Medicação</label><input class="fi" id="f-cli-med" placeholder="Medicação relevante"></div>
       <div class="fg fcol"><label class="fl">Observações gerais</label><textarea class="fta" id="f-cli-obs" placeholder="Notas adicionais..."></textarea></div>
     </div>
-    <div class="ficha-section" id="cli-turmas-section" style="display:none">Turmas inscritas</div>
-    <div id="cli-turmas-lista" style="display:none"></div>
-    <div class="ficha-section" id="cli-turmas-section" style="display:none">Turmas inscritas</div>
-    <div id="cli-turmas-lista" style="display:none;margin-bottom:12px"></div>
     <div class="mf"><button class="btn" onclick="fM('m-cliente')">Cancelar</button><button class="btn btnp" onclick="guardarCliente()">Guardar</button></div>
   </div>
 </div>
@@ -904,7 +894,7 @@ function verificarAdmin(){
   const err=document.getElementById('adm-err');
   err.style.display='none';
   if(aPin===(D.cfg.admin_pin||'1234')){
-    D.perfil='admin'; D.profLogado=null; D.role='admin'; D.profId=null;
+    D.perfil='admin'; D.role='admin'; D.profId=null; D.profLogado=null;
     document.getElementById('uname').textContent='Admin';
     document.getElementById('uav').textContent='AD';
     document.getElementById('urole').textContent='Administrador';
@@ -937,7 +927,8 @@ function verificarProf(){
   if(!profId){err.textContent='Seleciona o teu nome.';err.style.display='block';pPin='';updDots('pd',pPin);return;}
   const prof=D.professores.find(p=>p.id===profId);
   if(prof && prof.pin===pPin){
-    D.perfil='professor'; D.profLogado=prof; D.role='professor'; D.profId=prof.id;
+    D.perfil='professor'; D.profLogado=prof;
+    D.role='professor'; D.profId=prof.id;
     document.getElementById('uname').textContent=prof.nome;
     document.getElementById('uav').textContent=ini(prof.nome);
     document.getElementById('urole').textContent='Professor(a)';
@@ -996,9 +987,10 @@ async function carregarClientes(){ const {data}=await sb.from('clientes').select
 async function carregarGrupos(){
   const [{data:grps},{data:insc}]=await Promise.all([
     sb.from('grupos').select('*').order('nome'),
-    sb.from('inscricoes_grupo').select('grupo_id').eq('estado','ativa')
+    sb.from('inscricoes_grupo').select('*').eq('estado','ativa')
   ]);
   D.grupos=grps||[];
+  D.inscricoes_grupo=insc||[];
   // Contar inscritos por grupo
   D.inscricoes_grupo_count={};
   (insc||[]).forEach(i=>{
@@ -1009,25 +1001,29 @@ async function carregarGrupos(){
 async function carregarSessoes(){ const {data}=await sb.from('sessoes').select('*').order('data',{ascending:false}).order('hora'); D.sessoes=data||[]; renderSessoes(); }
 async function carregarProfessores(){ const {data}=await sb.from('professores').select('*').order('nome'); D.professores=data||[]; renderProfessores(); }
 // ════════════════════════════════════════════════════════
-// PAGAMENTOS — SISTEMA POR TURMA/MÊS
+// PAGAMENTOS — NOVO SISTEMA
 // ════════════════════════════════════════════════════════
 async function renderPagamentos(){
   const mes=document.getElementById('pag-mes')?.value||new Date().toISOString().slice(0,7);
   const isAdmin=D.role==='admin';
   const lista=document.getElementById('pag-lista');
   if(!lista)return;
-  lista.innerHTML='<div style="color:var(--t3);padding:20px;text-align:center">A carregar...</div>';
+  lista.innerHTML='<div style="color:var(--t3);padding:20px">A carregar...</div>';
 
-  // Carregar dados frescos
+  // Carregar dados frescos do Supabase
   const [{data:grpsData},{data:inscData},{data:pagsMes}]=await Promise.all([
     sb.from('grupos').select('*').eq('ativo',true).order('hora'),
     sb.from('inscricoes_grupo').select('*').eq('estado','ativa'),
     sb.from('pagamentos').select('*').gte('data_pag',mes+'-01').lte('data_pag',mes+'-31')
   ]);
+
+  // Actualizar D
   if(grpsData) D.grupos=grpsData;
   if(inscData) D.inscricoes_grupo=inscData;
 
+  // Grupos visíveis
   const grupos=isAdmin?D.grupos:D.grupos.filter(g=>g.professor_id===D.profId);
+
   const pagsMap={};
   (pagsMes||[]).forEach(p=>{ pagsMap[p.cliente_id+'_'+p.grupo_id]=p; });
 
@@ -1036,70 +1032,93 @@ async function renderPagamentos(){
   let html='';
   for(const g of grupos){
     const prof=D.professores.find(p=>p.id===g.professor_id);
-    const inscritos=(D.inscricoes_grupo||[]).filter(i=>i.grupo_id===g.id);
+    // Inscritos activos nesta turma
+    const inscritos=(D.inscricoes_grupo||[]).filter(i=>i.grupo_id===g.id&&i.estado==='ativa');
     if(!inscritos.length) continue;
+
     html+=`<div class="card" style="margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div>
-          <div style="font-weight:700;font-size:15px">${g.nome}</div>
+          <div style="font-weight:700;font-size:15px;color:var(--t)">${g.nome}</div>
           <div style="font-size:12px;color:var(--t3)">${g.hora||''} ${g.dias_semana||''} · ${prof?.nome||'—'}</div>
         </div>
         <div style="font-size:12px;color:var(--t3)">${inscritos.length} aluno${inscritos.length!==1?'s':''}</div>
       </div>`;
+
     for(const insc of inscritos){
       const cli=D.clientes.find(c=>c.id===insc.cliente_id);
       if(!cli) continue;
-      const freq=insc.tipo_aula||'';
+      // Calcular valor baseado na frequência
+      const freq=insc.tipo_aula||'2x';
       const valor=freq.includes('1x')?(parseFloat(g.preco_mensal_1x)||0):(parseFloat(g.preco_mensal_2x)||0);
       const pag=pagsMap[cli.id+'_'+g.id];
       const estado=pag?.estado||'pendente';
       const metodo=pag?.metodo||'';
-      const eCor={pago:'#3B6D11',pendente:'#854F0B',parcial:'#185FA5',isento:'#6B7280'};
-      const eBg={pago:'#EAF3DE',pendente:'#FAEEDA',parcial:'#E6F1FB',isento:'#F3F4F6'};
-      html+=`<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">
-        <div style="flex:1;min-width:120px">
+
+      const estadoCor={pago:'#3B6D11',pendente:'#854F0B',parcial:'#185FA5',isento:'#6B7280'};
+      const estadoBg={pago:'#EAF3DE',pendente:'#FAEEDA',parcial:'#E6F1FB',isento:'#F3F4F6'};
+
+      html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap" id="pag-row-${cli.id}-${g.id}">
+        <div style="flex:1;min-width:140px">
           <div style="font-size:13px;font-weight:600">${cli.nome}</div>
           <div style="font-size:11px;color:var(--t3)">${insc.dia_semana||''} · ${valor.toFixed(2)} €</div>
         </div>
-        <select class="fs" id="met-${cli.id}-${g.id}" style="width:120px;padding:5px 8px;font-size:12px" onchange="actualizarMetodo('${cli.id}','${g.id}','${mes}')">
-          <option value="" ${!metodo?'selected':''}>— Método —</option>
-          <option value="MB Way" ${metodo==='MB Way'?'selected':''}>💳 MB Way</option>
-          <option value="Transferência" ${metodo==='Transferência'?'selected':''}>🏦 Transferência</option>
-          <option value="Dinheiro" ${metodo==='Dinheiro'?'selected':''}>💵 Dinheiro</option>
-          <option value="Outro" ${metodo==='Outro'?'selected':''}>Outro</option>
-        </select>
-        <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='pago'?'background:'+eBg['pago']+';color:'+eCor['pago']+';border-color:'+eCor['pago']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'pago')">✓ Pago</button>
-        <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='parcial'?'background:'+eBg['parcial']+';color:'+eCor['parcial']+';border-color:'+eCor['parcial']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'parcial')">~ Parcial</button>
-        <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='pendente'?'background:'+eBg['pendente']+';color:'+eCor['pendente']+';border-color:'+eCor['pendente']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'pendente')">⏳ Pendente</button>
-        <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='isento'?'background:'+eBg['isento']+';color:'+eCor['isento']+';border-color:'+eCor['isento']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'isento')">○ Isento</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select class="fs" id="met-${cli.id}-${g.id}" style="width:120px;padding:6px 8px;font-size:12px" onchange="previewPag('${cli.id}','${g.id}')">
+            <option value="" ${!metodo?'selected':''}>— Método —</option>
+            <option value="MB Way" ${metodo==='MB Way'?'selected':''}>💳 MB Way</option>
+            <option value="Transferência" ${metodo==='Transferência'?'selected':''}>🏦 Transferência</option>
+            <option value="Dinheiro" ${metodo==='Dinheiro'?'selected':''}>💵 Dinheiro</option>
+            <option value="Outro" ${metodo==='Outro'?'selected':''}>Outro</option>
+          </select>
+          <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='pago'?'background:'+estadoBg['pago']+';color:'+estadoCor['pago']+';border-color:'+estadoCor['pago']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'pago')">✓ Pago</button>
+          <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='parcial'?'background:'+estadoBg['parcial']+';color:'+estadoCor['parcial']+';border-color:'+estadoCor['parcial']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'parcial')">~ Parcial</button>
+          <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='pendente'?'background:'+estadoBg['pendente']+';color:'+estadoCor['pendente']+';border-color:'+estadoCor['pendente']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'pendente')">⏳ Pendente</button>
+          <button class="btn btns" style="font-size:11px;padding:5px 8px;${estado==='isento'?'background:'+estadoBg['isento']+';color:'+estadoCor['isento']+';border-color:'+estadoCor['isento']:''}" onclick="regPag('${cli.id}','${g.id}','${mes}',${valor},'isento')">○ Isento</button>
+        </div>
       </div>`;
     }
     html+='</div>';
   }
+
   lista.innerHTML=html||'<div class="empty"><b>Sem alunos inscritos</b></div>';
 }
 
-async function actualizarMetodo(clienteId,grupoId,mes){
-  const metodo=document.getElementById('met-'+clienteId+'-'+grupoId)?.value||'';
-  const {data:existing}=await sb.from('pagamentos').select('id').eq('cliente_id',clienteId).eq('grupo_id',grupoId).gte('data_pag',mes+'-01').lte('data_pag',mes+'-31').single();
-  if(existing?.id){ await sb.from('pagamentos').update({metodo:metodo||null}).eq('id',existing.id); toast('Método actualizado!','ok'); }
-}
-
-async function regPag(clienteId,grupoId,mes,valor,estado){
+async function regPag(clienteId, grupoId, mes, valor, estado){
   const metodo=document.getElementById('met-'+clienteId+'-'+grupoId)?.value||'';
   const dataRef=mes+'-01';
-  const {data:existing}=await sb.from('pagamentos').select('id').eq('cliente_id',clienteId).eq('grupo_id',grupoId).gte('data_pag',mes+'-01').lte('data_pag',mes+'-31').single();
+  // Verificar se já existe pagamento
+  const {data:existing}=await sb.from('pagamentos')
+    .select('id')
+    .eq('cliente_id',clienteId)
+    .eq('grupo_id',grupoId)
+    .gte('data_pag',mes+'-01')
+    .lte('data_pag',mes+'-31')
+    .single();
+
   const g=D.grupos.find(x=>x.id===grupoId);
-  const record={cliente_id:clienteId,grupo_id:grupoId,descricao:`Mensalidade ${new Date(dataRef).toLocaleDateString('pt-PT',{month:'long',year:'numeric'})} — ${g?.nome||''}`,valor,metodo:metodo||null,estado,data_pag:dataRef};
-  if(existing?.id){ await sb.from('pagamentos').update(record).eq('id',existing.id); }
-  else { await sb.from('pagamentos').insert({id:uid(),...record}); }
+  const record={
+    cliente_id:clienteId,
+    grupo_id:grupoId,
+    descricao:`Mensalidade ${new Date(dataRef).toLocaleDateString('pt-PT',{month:'long',year:'numeric'})} — ${g?.nome||''}`,
+    valor,
+    metodo:metodo||null,
+    estado,
+    data_pag:dataRef,
+  };
+
+  if(existing?.id){
+    await sb.from('pagamentos').update(record).eq('id',existing.id);
+  } else {
+    await sb.from('pagamentos').insert({id:uid(),...record});
+  }
+
   await carregarPagamentos();
   renderPagamentos();
-  toast(estado==='pago'?'Pago!':'Estado actualizado!','ok');
+  toast(estado==='pago'?'Pagamento registado!':'Estado actualizado!','ok');
 }
 
-
-async function carregarPagamentos(){ const {data}=await sb.from('pagamentos').select('*').order('created_at',{ascending:false}); D.pagamentos=data||[]; }
+async function carregarPagamentos(){ const {data}=await sb.from('pagamentos').select('*').order('created_at',{ascending:false}); D.pagamentos=data||[]; renderPagamentos(); }
 async function carregarEspera(){ const {data}=await sb.from('espera').select('*').order('created_at'); D.espera=data||[]; renderEspera(); }
 async function carregarComunicados(){ const {data}=await sb.from('comunicados').select('*').order('created_at',{ascending:false}); D.comunicados=data||[]; renderComunicados(); }
 async function carregarInscricoes(){ const {data}=await sb.from('inscricoes').select('*').order('criado_em',{ascending:false}); D.inscricoes=data||[]; renderInscricoes(); }
@@ -1117,11 +1136,20 @@ function goP(id,el){
   document.getElementById('tbtitle').textContent=TITLES[id]||id;
   if(id==='presencas') popularSelSessoes();
   if(id==='config'){ popularSelGrpLink(); renderPlanos(); aplicarBranding(); }
-  if(id==='relatorios'){ popularSelRelatorios(); }
   if(id==='pagamentos'){
     const mesEl=document.getElementById('pag-mes');
     if(mesEl&&!mesEl.value) mesEl.value=new Date().toISOString().slice(0,7);
     renderPagamentos();
+  }
+  if(id==='relatorios'){
+    popularSelRelatorios();
+    // Actualizar preview ao mudar filtros
+    setTimeout(()=>{
+      ['rel-mes','rel-prof','rel-grupo'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.onchange=actualizarPreviewRelatorio;
+      });
+    },100);
   }
   closeSidebar();
 }
@@ -1169,38 +1197,105 @@ function popularSelSessoes(){
     }).join('');
 }
 function popularSelRelatorios(){
-  const sel=document.getElementById('rel-grupo');
-  if(sel) sel.innerHTML='<option value="">Todas as turmas</option>'+
-    D.grupos.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('');
-  // Datas default — mês actual
-  const hoje=new Date();
-  const mesAtual=hoje.toISOString().slice(0,7);
-  const el=document.getElementById('rel-mes');
-  if(el&&!el.value) el.value=mesAtual;
-  const ini=document.getElementById('rel-inicio');
-  const fim=document.getElementById('rel-fim');
-  if(ini&&!ini.value) ini.value=hoje.getFullYear()+'-01-01';
-  if(fim&&!fim.value) fim.value=hoje.toISOString().slice(0,10);
-  // Pré-visualizar resumo
-  mostrarPreviewRelatorio();
+  const isAdmin=D.role==='admin';
+  // Professores — só admin vê o filtro de professor
+  const profWrap=document.getElementById('rel-prof-wrap');
+  if(profWrap) profWrap.style.display=isAdmin?'block':'none';
+  const selProf=document.getElementById('rel-prof');
+  if(selProf) selProf.innerHTML='<option value="">Todos os professores</option>'+
+    D.professores.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  // Se for professor, pré-seleccionar ele próprio
+  if(!isAdmin&&D.profId){
+    if(selProf) selProf.value=D.profId;
+  }
+  const selGrp=document.getElementById('rel-grupo');
+  const gruposFiltrados=isAdmin?D.grupos:D.grupos.filter(g=>g.professor_id===D.profId);
+  if(selGrp) selGrp.innerHTML='<option value="">Todas as turmas</option>'+
+    gruposFiltrados.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('');
+  // Mês actual por defeito
+  const mesEl=document.getElementById('rel-mes');
+  if(mesEl&&!mesEl.value) mesEl.value=new Date().toISOString().slice(0,7);
+  // Preview
+  actualizarPreviewRelatorio();
 }
 
-async function mostrarPreviewRelatorio(){
-  const pags=D.pagamentos;
+function calcularValoresPorProfessor(pags){
+  // Para cada pagamento, divide o valor pelos professores das turmas do cliente
+  const porProf={};
+  pags.forEach(p=>{
+    const val=parseFloat(p.valor)||0;
+    if(!val) return;
+    // Encontrar inscrições activas do cliente
+    const inscCli=(D.inscricoes_grupo||[]).filter(i=>i.cliente_id===p.cliente_id&&i.estado==='ativa');
+    if(!inscCli.length){
+      // Sem turma — atribuir ao professor da turma do pagamento ou geral
+      const k='geral';
+      porProf[k]=(porProf[k]||0)+val;
+      return;
+    }
+    // Dividir igualmente pelos professores das turmas
+    const profIds=[...new Set(inscCli.map(i=>{
+      const g=D.grupos.find(x=>x.id===i.grupo_id);
+      return g?.professor_id||'geral';
+    }))];
+    const parte=val/profIds.length;
+    profIds.forEach(pid=>{ porProf[pid]=(porProf[pid]||0)+parte; });
+  });
+  return porProf;
+}
+
+function actualizarPreviewRelatorio(){
+  const mes=document.getElementById('rel-mes')?.value||'';
+  const profId=document.getElementById('rel-prof')?.value||'';
+  const isAdmin=D.role==='admin';
+
+  let pags=D.pagamentos.filter(p=>{
+    const d=p.data_pag||p.created_at||'';
+    return !mes||d.startsWith(mes);
+  });
+
+  // Se professor, filtrar pelos seus clientes
+  if(!isAdmin&&D.profId){
+    const seusClientes=new Set(
+      (D.inscricoes_grupo||[])
+        .filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g?.professor_id===D.profId;})
+        .map(i=>i.cliente_id)
+    );
+    pags=pags.filter(p=>seusClientes.has(p.cliente_id));
+  } else if(profId){
+    const seusClientes=new Set(
+      (D.inscricoes_grupo||[])
+        .filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g?.professor_id===profId;})
+        .map(i=>i.cliente_id)
+    );
+    pags=pags.filter(p=>seusClientes.has(p.cliente_id));
+  }
+
   const total=pags.reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
   const pagos=pags.filter(p=>p.estado==='pago').reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
-  const pendentes=pags.filter(p=>p.estado!=='pago').reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const pendentes=total-pagos;
   const pct=parseFloat(D.cfg.parceiro_pct||0);
   const parceiro=D.cfg.parceiro_nome||'Parceiro';
-  const aPartilhar=pagos*(pct/100);
+  const aClinica=pagos*(pct/100);
+
+  // Por professor
+  const porProf=calcularValoresPorProfessor(pags.filter(p=>p.estado==='pago'));
+  const linhasProf=isAdmin&&!profId?Object.entries(porProf).map(([pid,val])=>{
+    const prof=D.professores.find(x=>x.id===pid);
+    return`<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid var(--bd)">
+      <span>${prof?.nome||'Geral'}</span>
+      <b>${val.toFixed(2)} €</b>
+    </div>`;
+  }).join(''):'';
+
   document.getElementById('rel-preview-body').innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:1rem">
-      <div class="metric"><div class="mlabel">Total facturado</div><div class="mval" style="font-size:20px">${total.toFixed(2)} €</div></div>
-      <div class="metric"><div class="mlabel">Recebido</div><div class="mval" style="font-size:20px;color:var(--green)">${pagos.toFixed(2)} €</div></div>
-      <div class="metric"><div class="mlabel">Pendente</div><div class="mval" style="font-size:20px;color:var(--amber)">${pendentes.toFixed(2)} €</div></div>
-      <div class="metric ac"><div class="mlabel">A pagar a ${parceiro} (${pct}%)</div><div class="mval" style="font-size:20px;color:var(--P)">${aPartilhar.toFixed(2)} €</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1rem">
+      <div class="metric"><div class="mlabel">Facturado</div><div class="mval" style="font-size:18px">${total.toFixed(2)} €</div></div>
+      <div class="metric"><div class="mlabel">Recebido</div><div class="mval" style="font-size:18px;color:var(--green)">${pagos.toFixed(2)} €</div></div>
+      <div class="metric"><div class="mlabel">Pendente</div><div class="mval" style="font-size:18px;color:var(--amber)">${pendentes.toFixed(2)} €</div></div>
+      ${isAdmin?`<div class="metric"><div class="mlabel">${parceiro} (${pct}%)</div><div class="mval" style="font-size:18px;color:var(--P)">${aClinica.toFixed(2)} €</div></div>`:''}
     </div>
-    <p style="font-size:12px;color:var(--t2)">Estes valores são globais. Usa os filtros acima para exportar por período ou turma.</p>
+    ${linhasProf?`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Por professor</div>${linhasProf}</div>`:''}
   `;
 }
 
@@ -1284,68 +1379,35 @@ function abrCliente(c=null){
   document.getElementById('f-cli-med').value=c?.medicacao||'';
   document.getElementById('f-cli-obs').value=c?.obs||'';
   document.getElementById('m-cli-title').textContent=c?'Editar cliente':'Novo cliente';
-  const ts=document.getElementById('cli-turmas-section');
-  const tl=document.getElementById('cli-turmas-lista');
-  if(c&&ts&&tl){ ts.style.display='block'; tl.style.display='block'; carregarTurmasCliente(c.id); }
-  else if(ts){ ts.style.display='none'; if(tl) tl.style.display='none'; }
   oM('m-cliente');
 }
-
-async function carregarTurmasCliente(cliId){
-  const lista=document.getElementById('cli-turmas-lista');
-  const {data:inscs}=await sb.from('inscricoes_grupo').select('*').eq('cliente_id',cliId);
-  const inscIds=new Set((inscs||[]).map(i=>i.grupo_id));
-  const disponiveis=D.grupos.filter(g=>g.ativo&&!inscIds.has(g.id));
-  const linhas=(inscs||[]).map(i=>{
-    const g=D.grupos.find(x=>x.id===i.grupo_id);
-    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">
-      <div style="flex:1;min-width:130px">
-        <div style="font-size:13px;font-weight:600">${g?.nome||'—'} ${g?.hora||''}</div>
-        <div style="font-size:11px;color:var(--t3)">${i.dia_semana||''}</div>
-      </div>
-      <select class="fs" style="width:105px;font-size:11px;padding:4px 6px" onchange="alterarEstadoInsc('${i.id}',this.value,'${cliId}')">
-        <option value="ativa" ${i.estado==='ativa'?'selected':''}>✓ Ativa</option>
-        <option value="pausada" ${i.estado==='pausada'?'selected':''}>⏸ Pausada</option>
-        <option value="desistiu" ${i.estado==='desistiu'?'selected':''}>✗ Desistiu</option>
-      </select>
-      <button class="btn btns btnd" style="padding:4px 8px;font-size:11px" onclick="eliminarInscricaoGrupo('${i.id}','${cliId}')">🗑️</button>
-    </div>`;
-  }).join('');
-  const addHtml=disponiveis.length?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-    <select class="fs" id="add-turma-${cliId}" style="flex:1;font-size:12px">
-      <option value="">— Adicionar turma —</option>
-      ${disponiveis.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('')}
-    </select>
-    <button class="btn btnp" style="font-size:12px;padding:6px 12px" onclick="adicionarTurmaCliente('${cliId}')">+ Adicionar</button>
-  </div>`:'';
-  lista.innerHTML=(inscs?.length?linhas:'<div style="font-size:13px;color:var(--t3);padding:6px 0">Sem turmas inscritas</div>')+addHtml;
+async function guardarCliente(){
+  const id=document.getElementById('f-cli-id').value;
+  const d={nome:document.getElementById('f-cli-nome').value.trim(),email:document.getElementById('f-cli-email').value.trim()||null,telemovel:document.getElementById('f-cli-tel').value.trim()||null,data_nasc:document.getElementById('f-cli-nasc').value||null,nif:document.getElementById('f-cli-nif').value.trim()||null,morada:document.getElementById('f-cli-morada').value.trim()||null,estado:document.getElementById('f-cli-estado').value,nivel:document.getElementById('f-cli-nivel').value,objectivos:document.getElementById('f-cli-obj').value.trim()||null,lesoes:document.getElementById('f-cli-lesoes').value.trim()||null,medicacao:document.getElementById('f-cli-med').value.trim()||null,obs:document.getElementById('f-cli-obs').value.trim()||null};
+  if(!d.nome){toast('Preenche o nome','err');return;}
+  let err;
+  if(id){({error:err}=await sb.from('clientes').update(d).eq('id',id));}
+  else{d.id=uid();({error:err}=await sb.from('clientes').insert(d));}
+  if(err){toast('Erro: '+err.message,'err');return;}
+  fM('m-cliente'); toast(id?'Cliente atualizado!':'Cliente criado!','ok');
+  await carregarClientes(); atualizarBadges();
+}
+async function eliminarCliente(id){if(!confirm('Eliminar cliente?'))return;await sb.from('clientes').delete().eq('id',id);toast('Eliminado','ok');await carregarClientes();}
+function renderClientes(){
+  const tb=document.getElementById('tb-cli');if(!tb)return;
+  const nivelBdg={iniciante:'bgr',intermedio:'ba',avancado:'bp'};
+  tb.innerHTML=D.clientes.length?D.clientes.map(c=>`<tr>
+    <td><div class="tdn"><div class="av">${ini(c.nome)}</div>${c.nome}</div></td>
+    <td style="font-size:12px;color:var(--t2)">${c.email||'—'}<br>${c.telemovel||''}</td>
+    <td><span class="badge ${nivelBdg[c.nivel]||'bgr'}">${c.nivel||'iniciante'}</span></td>
+    <td>${bdgE(c.estado)}</td>
+    <td><div style="display:flex;gap:4px">
+      <button class="btn btns" onclick='abrCliente(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️</button>
+      <button class="btn btns btnd" onclick="eliminarCliente('${c.id}')">🗑️</button>
+    </div></td>
+  </tr>`).join(''):`<tr><td colspan="5"><div class="empty"><b>Sem clientes</b><span>Clica em "Novo cliente"</span></div></td></tr>`;
 }
 
-async function adicionarTurmaCliente(cliId){
-  const sel=document.getElementById('add-turma-'+cliId);
-  const grupoId=sel?.value; if(!grupoId){toast('Escolhe uma turma','err');return;}
-  const g=D.grupos.find(x=>x.id===grupoId);
-  const dias=(g?.dias_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
-  await sb.from('inscricoes_grupo').insert({id:uid(),cliente_id:cliId,grupo_id:grupoId,estado:'ativa',dia_semana:dias.join(','),data_inicio:new Date().toISOString().slice(0,10)});
-  toast('Turma adicionada!','ok');
-  carregarTurmasCliente(cliId);
-  await carregarGrupos();
-}
-
-async function alterarEstadoInsc(inscId,estado,cliId){
-  await sb.from('inscricoes_grupo').update({estado}).eq('id',inscId);
-  toast('Estado actualizado!','ok');
-  carregarTurmasCliente(cliId);
-  await carregarGrupos();
-}
-
-async function eliminarInscricaoGrupo(inscId,cliId){
-  if(!confirm('Remover desta turma?'))return;
-  await sb.from('inscricoes_grupo').delete().eq('id',inscId);
-  toast('Removido!','ok');
-  carregarTurmasCliente(cliId);
-  await carregarGrupos();
-}
 // ════════════════════════════════════════════════════════
 // GRUPOS
 // ════════════════════════════════════════════════════════
@@ -1407,7 +1469,10 @@ async function guardarGrupo(){
 async function eliminarGrupo(id){if(!confirm('Eliminar grupo?'))return;await sb.from('grupos').delete().eq('id',id);toast('Eliminado','ok');await carregarGrupos();}
 function renderGrupos(){
   const tb=document.getElementById('tb-grp');if(!tb)return;
-  tb.innerHTML=D.grupos.length?D.grupos.map(g=>{
+  // Professor só vê as suas turmas
+  const isAdmin=D.role==='admin';
+  const gruposVisiveis=isAdmin?D.grupos:D.grupos.filter(g=>g.professor_id===D.profId);
+  tb.innerHTML=gruposVisiveis.length?gruposVisiveis.map(g=>{
     const prof=D.professores.find(p=>p.id===g.professor_id);
     const inscritos=D.inscricoes_grupo_count?.[g.id]||0;
     const pct=Math.round((inscritos/g.vagas_max)*100);
@@ -1543,7 +1608,21 @@ async function guardarPag(){
   await carregarPagamentos(); atualizarBadges();
 }
 async function eliminarPag(id){if(!confirm('Eliminar?'))return;await sb.from('pagamentos').delete().eq('id',id);toast('Eliminado','ok');await carregarPagamentos();}
-
+function renderPagamentos(){
+  const tb=document.getElementById('tb-pag');if(!tb)return;
+  tb.innerHTML=D.pagamentos.length?D.pagamentos.map(p=>{
+    const c=D.clientes.find(x=>x.id===p.cliente_id);
+    return`<tr>
+      <td><div class="tdn"><div class="avs">${ini(c?.nome||'?')}</div>${c?.nome||'—'}</div></td>
+      <td style="font-size:12px">${p.descricao||'—'}</td>
+      <td style="font-family:var(--m);font-weight:700">${fmt(p.valor)} €</td>
+      <td style="font-size:12px">${p.metodo||'—'}</td>
+      <td style="font-size:12px;color:var(--t2)">${fmtData(p.data_pag)}</td>
+      <td>${bdgE(p.estado)}</td>
+      <td><button class="btn btns btnd" onclick="eliminarPag('${p.id}')">🗑️</button></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="empty"><b>Sem pagamentos</b></div></td></tr>`;
+}
 
 // ════════════════════════════════════════════════════════
 // ESPERA
@@ -1631,13 +1710,26 @@ async function aprovarInsc(id){
     // Actualizar estado para ativo
     await sb.from('clientes').update({estado:'ativo'}).eq('id',clienteId);
   } else {
+    // Extrair lesões e objectivos do campo obs
+    const obsTexto=i.obs||'';
+    const lesMatch=obsTexto.match(/Les[oõ]es:\s*([^\n]+)/);
+    const objMatch=obsTexto.match(/Objectivos:\s*([^\n]+)/);
+    const lesoes=lesMatch?lesMatch[1].trim():null;
+    const objectivos=objMatch?objMatch[1].trim():null;
+    const obsLimpa=obsTexto.replace(/Les[oõ]es:[^\n]+\n?/,'').replace(/Objectivos:[^\n]+\n?/,'').trim()||null;
+
     const novoCli={
       id:uid(),
       nome:i.nome,
       email:i.email||null,
       telemovel:i.telemovel||null,
+      data_nasc:i.data_nasc||null,
+      morada:i.morada||null,
+      nif:i.nif||null,
       estado:'ativo',
-      obs:i.obs||null,
+      lesoes:lesoes,
+      objectivos:objectivos,
+      obs:obsLimpa,
     };
     const {data:cliNovo}=await sb.from('clientes').insert(novoCli).select().single();
     clienteId=cliNovo?.id;
@@ -1688,14 +1780,7 @@ async function moverEsperaInsc(id){
 }
 function renderInscricoes(){
   const tb=document.getElementById('tb-insc');if(!tb)return;
-  const isAdmin=D.role==='admin';
-  // Professor só vê inscrições das suas turmas
-  const inscVisiveis=isAdmin?D.inscricoes:D.inscricoes.filter(i=>{
-    if(!i.grupo_id) return false;
-    const g=D.grupos.find(x=>x.id===i.grupo_id);
-    return g?.professor_id===D.profId;
-  });
-  tb.innerHTML=inscVisiveis.length?inscVisiveis.map(i=>`<tr>
+  tb.innerHTML=D.inscricoes.length?D.inscricoes.map(i=>`<tr>
     <td><div class="tdn"><div class="avs">${ini(i.nome)}</div>${i.nome}</div></td>
     <td style="font-size:12px">${i.email||'—'}<br>${i.telemovel||''}</td>
     <td style="font-size:12px">${i.tipo_aula||'—'}</td>
@@ -1810,18 +1895,26 @@ function renderPlanos(){
 async function gerarRelatorioMensal(){
   const mes=document.getElementById('rel-mes').value;
   const grupoId=document.getElementById('rel-grupo').value;
+  const profId=document.getElementById('rel-prof')?.value||'';
+  const isAdmin=D.role==='admin';
   if(!mes){toast('Selecciona o mês','err');return;}
 
-  // Filtrar pagamentos
-  const [ano,m]=mes.split('-');
   let pags=D.pagamentos.filter(p=>{
     const d=p.data_pag||p.created_at||'';
     return d.startsWith(mes);
   });
+  // Filtrar por professor
+  const filterProfId=isAdmin?profId:D.profId;
+  if(filterProfId){
+    const seusClientes=new Set(
+      (D.inscricoes_grupo||[])
+        .filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g?.professor_id===filterProfId;})
+        .map(i=>i.cliente_id)
+    );
+    pags=pags.filter(p=>seusClientes.has(p.cliente_id));
+  }
   if(grupoId){
-    // Filtrar clientes da turma
-    const {data:inscGrp}=await sb.from('inscricoes_grupo').select('cliente_id').eq('grupo_id',grupoId).eq('estado','ativa');
-    const clientesGrp=new Set((inscGrp||[]).map(i=>i.cliente_id));
+    const clientesGrp=new Set((D.inscricoes_grupo||[]).filter(i=>i.grupo_id===grupoId&&i.estado==='ativa').map(i=>i.cliente_id));
     pags=pags.filter(p=>clientesGrp.has(p.cliente_id));
   }
 
@@ -1865,7 +1958,7 @@ async function gerarRelatorioMensal(){
   doc.text(safe(`Total recebido: ${pagos.toFixed(2)} EUR`),14,y+15);
   doc.setTextColor(83,74,183);
   doc.setFont('helvetica','bold');
-  doc.text(safe(`A pagar a ${parceiro} (${pct}%): ${aPartilhar.toFixed(2)} EUR`),14,y+22);
+  if(isAdmin) doc.text(safe(`A pagar a ${parceiro} (${pct}%): ${aPartilhar.toFixed(2)} EUR`),14,y+22);
 
   pdfFooter(doc);
   doc.save(`gestiok-relatorio-${mes}${grp?'-'+grp.nome.replace(/\s/g,'-'):''}.pdf`);
