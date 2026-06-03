@@ -1159,7 +1159,11 @@ function atualizarBadges(){
 // DASHBOARD
 // ════════════════════════════════════════════════════════
 function renderDash(){
-  document.getElementById('m-cli').textContent=D.clientes.filter(c=>c.estado==='ativo').length;
+  const isAdminCli=D.role==='admin';
+  const cliCount=isAdminCli
+    ?D.clientes.filter(c=>c.estado==='ativo').length
+    :D.clientes.filter(c=>c.estado==='ativo'&&(D.inscricoes_grupo||[]).some(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return i.cliente_id===c.id&&g&&g.professor_id===D.profId;})).length;
+  document.getElementById('m-cli').textContent=cliCount;
   const mes=new Date().getMonth();
   document.getElementById('m-ses').textContent=D.sessoes.filter(s=>s.data&&new Date(s.data).getMonth()===mes).length;
   const _hoje=new Date();
