@@ -1007,121 +1007,7 @@ async function carregarGrupos(){
   renderGrupos(); popularSels();
 }
 async function carregarSessoes(){ const {data}=await sb.from('sessoes').select('*').order('data',{ascending:false}).order('hora'); D.sessoes=data||[]; renderSessoes(); }
-async function carregarProfessores(){ const {data}=await sb.from('professores').select('*').order('nome'); D.professores=data||[]; renderProfessores(); }// ════════════════════════════════════════════════════════
-// PAGAMENTOS — SISTEMA POR TURMA/MÊS
-// ════════════════════════════════════════════════════════
-function ultimoDiaMes(mes){
-  const p=mes.split('-');
-  return new Date(parseInt(p[0]),parseInt(p[1]),0).toISOString().slice(0,10);
-}
-
-async function renderPagamentos(){
-  const mes=document.getElementById('pag-mes')&&document.getElementById('pag-mes').value||new Date().toISOString().slice(0,7);
-  const fimMes=ultimoDiaMes(mes);
-  const isAdmin=D.role==='admin';
-  const lista=document.getElementById('pag-lista');
-  if(!lista)return;
-  lista.innerHTML='<div style="color:var(--t3);padding:20px;text-align:center">A carregar...</div>';
-  const r1=await sb.from('grupos').select('*').eq('ativo',true).order('hora');
-  const r2=await sb.from('inscricoes_grupo').select('*').eq('estado','ativa');
-  const r3=await sb.from('pagamentos').select('*').gte('data_pag',mes+'-01').lte('data_pag',fimMes);
-  if(r1.data) D.grupos=r1.data;
-  if(r2.data) D.inscricoes_grupo=r2.data;
-  const grupos=isAdmin?D.grupos:D.grupos.filter(function(g){return g.professor_id===D.profId;});
-  const pagsMap={};
-  (r3.data||[]).forEach(function(p){pagsMap[p.cliente_id+'_'+p.grupo_id]=p;});
-  if(!grupos.length){lista.innerHTML='<div class="empty"><b>Sem turmas</b></div>';return;}
-  let html='';
-  for(let gi=0;gi<grupos.length;gi++){
-    const g=grupos[gi];
-    const prof=D.professores.find(function(p){return p.id===g.professor_id;});
-    const inscritos=(D.inscricoes_grupo||[]).filter(function(i){return i.grupo_id===g.id;});
-    if(!inscritos.length) continue;
-    html+='<div class="card" style="margin-bottom:12px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div><div style="font-weight:700;font-size:15px">'+g.nome+'</div><div style="font-size:12px;color:var(--t3)">'+(g.hora||'')+' '+(g.dias_semana||'')+' · '+(prof?prof.nome:'—')+'</div></div><div style="font-size:12px;color:var(--t3)">'+inscritos.length+' aluno'+(inscritos.length!==1?'s':'')+'</div></div>';
-    for(let ii=0;ii<inscritos.length;ii++){
-      const insc=inscritos[ii];
-      const cli=D.clientes.find(function(c){return c.id===insc.cliente_id;});
-      if(!cli) continue;
-      const freq=insc.tipo_aula||'';
-      // Contar quantas turmas activas este cliente tem
-      const nTurmas=(D.inscricoes_grupo||[]).filter(function(x){return x.cliente_id===insc.cliente_id&&x.estado==='ativa';}).length;
-      let valor;
-      if(nTurmas>=2){
-        // 2 ou mais turmas — divide o preço 2x pelo número de turmas
-        const preco2x=parseFloat(g.preco_mensal_2x)||0;
-        valor=preco2x>0?preco2x/nTurmas:0;
-      } else {
-        // 1 turma — preço normal conforme frequência
-        valor=freq.indexOf('1x')>=0?(parseFloat(g.preco_mensal_1x)||0):(parseFloat(g.preco_mensal_2x)||0);
-      }
-      const pag=pagsMap[cli.id+'_'+g.id];
-      const estado=pag?pag.estado:'pendente';
-      const metodo=pag?pag.metodo:'';
-      const eCor={pago:'#3B6D11',pendente:'#854F0B',parcial:'#185FA5',isento:'#6B7280'};
-      const eBg={pago:'#EAF3DE',pendente:'#FAEEDA',parcial:'#E6F1FB',isento:'#F3F4F6'};
-      function bs(e){return estado===e?'background:'+eBg[e]+';color:'+eCor[e]+';border-color:'+eCor[e]:'';}
-      html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">'+
-        '<div style="flex:1;min-width:120px"><div style="font-size:13px;font-weight:600">'+cli.nome+'</div>'+
-        '<div style="font-size:11px;color:var(--t3)">'+(insc.dia_semana||'')+' · '+(valor>0?valor.toFixed(2)+' €':'—')+'</div></div>'+
-        '<select class="fs" id="met-'+cli.id+'-'+g.id+'" data-cid="'+cli.id+'" data-gid="'+g.id+'" data-mes="'+mes+'" data-fim="'+fimMes+'" style="width:120px;padding:5px 8px;font-size:12px" onchange="aMetP(this)">'+
-          '<option value=""'+(metodo?'':' selected')+'>— Método —</option>'+
-          '<option value="MB Way"'+(metodo==='MB Way'?' selected':'')+'>MB Way</option>'+
-          '<option value="Transferência"'+(metodo==='Transferência'?' selected':'')+'>Transferência</option>'+
-          '<option value="Dinheiro"'+(metodo==='Dinheiro'?' selected':'')+'>Dinheiro</option>'+
-          '<option value="Outro"'+(metodo==='Outro'?' selected':'')+'>Outro</option>'+
-        '</select>'+
-        '<div class="pag-btns" data-cid="'+cli.id+'" data-gid="'+g.id+'" data-mes="'+mes+'" data-fim="'+fimMes+'" data-val="'+valor+'">'+
-          '<button class="btn btns" style="font-size:11px;padding:5px 8px;'+bs('pago')+'" data-e="pago" onclick="rPgBtn(this)">✓ Pago</button>'+
-          '<button class="btn btns" style="font-size:11px;padding:5px 8px;'+bs('parcial')+'" data-e="parcial" onclick="rPgBtn(this)">~ Parcial</button>'+
-          '<button class="btn btns" style="font-size:11px;padding:5px 8px;'+bs('pendente')+'" data-e="pendente" onclick="rPgBtn(this)">⏳ Pendente</button>'+
-          '<button class="btn btns" style="font-size:11px;padding:5px 8px;'+bs('isento')+'" data-e="isento" onclick="rPgBtn(this)">○ Isento</button>'+
-        '</div>'+
-      '</div>';
-    }
-    html+='</div>';
-  }
-  lista.innerHTML=html||'<div class="empty"><b>Sem alunos inscritos</b></div>';
-}
-
-async function aMetP(sel){
-  const cliId=sel.dataset.cid, grupoId=sel.dataset.gid, inicio=sel.dataset.mes, fim=sel.dataset.fim;
-  const el=document.getElementById('met-'+cliId+'-'+grupoId);
-  const v=el?el.value:'';
-  const r=await sb.from('pagamentos').select('id').eq('cliente_id',cliId).eq('grupo_id',grupoId).gte('data_pag',inicio+'-01').lte('data_pag',fim).maybeSingle();
-  if(r.data&&r.data.id){await sb.from('pagamentos').update({metodo:v||null}).eq('id',r.data.id);toast('Método guardado!','ok');}
-}
-
-async function rPgBtn(btn){
-  const wrap=btn.closest('.pag-btns');
-  const cliId=wrap.dataset.cid, grupoId=wrap.dataset.gid, inicio=wrap.dataset.mes, fim=wrap.dataset.fim;
-  const valor=parseFloat(wrap.dataset.val)||0, estado=btn.dataset.e;
-  return rPg(cliId,grupoId,inicio,fim,valor,estado);
-}
-async function rPg(cliId,grupoId,inicio,fim,valor,estado){
-  const el=document.getElementById('met-'+cliId+'-'+grupoId);
-  const metodo=el?el.value:'';
-  const dataRef=inicio+'-01';
-  // Apagar todos os registos duplicados do mesmo cliente/grupo/mês e inserir um único
-  const g=D.grupos.find(function(x){return x.id===grupoId;});
-  const rec={cliente_id:cliId,grupo_id:grupoId,descricao:'Mensalidade '+new Date(dataRef).toLocaleDateString('pt-PT',{month:'long',year:'numeric'})+' — '+(g?g.nome:''),valor:valor,metodo:metodo||null,estado:estado,data_pag:dataRef};
-  // Buscar todos os registos existentes para este mês
-  const {data:existentes}=await sb.from('pagamentos').select('id').eq('cliente_id',cliId).eq('grupo_id',grupoId).gte('data_pag',dataRef).lte('data_pag',fim);
-  if(existentes&&existentes.length>0){
-    // Actualizar o primeiro e apagar os restantes
-    await sb.from('pagamentos').update(rec).eq('id',existentes[0].id);
-    if(existentes.length>1){
-      const idsApagar=existentes.slice(1).map(function(e){return e.id;});
-      await sb.from('pagamentos').delete().in('id',idsApagar);
-    }
-  } else {
-    await sb.from('pagamentos').insert(Object.assign({id:uid()},rec));
-  }
-  await carregarPagamentos();
-  renderPagamentos();
-  toast(estado==='pago'?'Pago!':'Estado actualizado!','ok');
-}
-
-
+async function carregarProfessores(){ const {data}=await sb.from('professores').select('*').order('nome'); D.professores=data||[]; renderProfessores(); }
 async function carregarPagamentos(){ const {data}=await sb.from('pagamentos').select('*').order('created_at',{ascending:false}); D.pagamentos=data||[]; }
 async function carregarEspera(){ const {data}=await sb.from('espera').select('*').order('created_at'); D.espera=data||[]; renderEspera(); }
 async function carregarComunicados(){ const {data}=await sb.from('comunicados').select('*').order('created_at',{ascending:false}); D.comunicados=data||[]; renderComunicados(); }
@@ -1185,8 +1071,14 @@ function popularSels(){
 }
 function popularSelSessoes(){
   const sel=document.getElementById('sel-ses');
-  if(sel)sel.innerHTML='<option value="">— Selecionar sessão —</option>'+
-    D.sessoes.slice(0,50).map(s=>{
+  if(!sel) return;
+  const isAdminP=D.role==='admin';
+  const sesSel=isAdminP?D.sessoes:D.sessoes.filter(s=>{
+    const g=D.grupos.find(x=>x.id===s.grupo_id);
+    return s.professor_id===D.profId||(g&&g.professor_id===D.profId);
+  });
+  sel.innerHTML='<option value="">— Selecionar sessão —</option>'+
+    sesSel.slice(0,50).map(s=>{
       const g=D.grupos.find(x=>x.id===s.grupo_id);
       return`<option value="${s.id}">${s.data} ${s.hora} — ${g?.nome||'?'}</option>`;
     }).join('');
@@ -1270,43 +1162,50 @@ function renderDash(){
   document.getElementById('m-cli').textContent=D.clientes.filter(c=>c.estado==='ativo').length;
   const mes=new Date().getMonth();
   document.getElementById('m-ses').textContent=D.sessoes.filter(s=>s.data&&new Date(s.data).getMonth()===mes).length;
-  const mesAtualBadge=new Date().toISOString().slice(0,7);
-  const isAdminB=D.role==='admin';
-  const seusCliB=!isAdminB&&D.profId?new Set((D.inscricoes_grupo||[]).filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g&&g.professor_id===D.profId;}).map(i=>i.cliente_id)):null;
-  document.getElementById('m-pag').textContent=D.pagamentos.filter(p=>{
+  const _hoje=new Date();
+  const _dia=_hoje.getDate();
+  const _mes=_hoje.toISOString().slice(0,7);
+  const _isAdmin=D.role==='admin';
+  const _seusC=!_isAdmin&&D.profId?new Set((D.inscricoes_grupo||[]).filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g&&g.professor_id===D.profId;}).map(i=>i.cliente_id)):null;
+  document.getElementById('m-pag').textContent=_dia>=8?D.pagamentos.filter(p=>{
     if(p.estado==='pago'||p.estado==='isento') return false;
-    if(seusCliB&&!seusCliB.has(p.cliente_id)) return false;
-    const d=p.data_pag||p.created_at||'';
-    return d.startsWith(mesAtualBadge);
-  }).length;
+    if(_seusC&&!_seusC.has(p.cliente_id)) return false;
+    return (p.data_pag||'').startsWith(_mes);
+  }).length:0;
   document.getElementById('m-esp').textContent=D.espera.length;
 
   // Próximas sessões
   const hoje=new Date().toISOString().slice(0,10);
-  const prox=D.sessoes.filter(s=>s.data>=hoje).slice(0,4);
+  const isAdminDS=D.role==='admin';
+  const todasSes=isAdminDS?D.sessoes:D.sessoes.filter(s=>{
+    const g=D.grupos.find(x=>x.id===s.grupo_id);
+    return s.professor_id===D.profId||(g&&g.professor_id===D.profId);
+  });
+  const prox=todasSes.filter(s=>s.data>=hoje).slice(0,4);
   document.getElementById('d-ses').innerHTML=prox.length?prox.map(s=>{
     const g=D.grupos.find(x=>x.id===s.grupo_id);
     const pr=D.professores.find(x=>x.id===s.professor_id);
     return`<div class="arow"><div class="ahora">${s.hora||'--:--'}</div><div class="ainfo"><div class="anome">${g?.nome||'—'}</div><div class="adet">${s.data} · ${pr?.nome||'Sem professor'} · ${s.sala||''}</div></div>${bdgE(s.estado)}</div>`;
   }).join(''):'<div class="empty"><b>Sem sessões próximas</b></div>';
 
-  // Pagamentos pendentes — mês actual + filtro professor
-  const mesAtualStr=new Date().toISOString().slice(0,7);
-  const isAdminD=D.role==='admin';
-  const seusCliDash=!isAdminD&&D.profId?new Set(
+  // Pagamentos pendentes — só a partir do dia 8 do mês actual
+  const hojeD=new Date();
+  const diaAtual=hojeD.getDate();
+  const mesAtualPag=hojeD.toISOString().slice(0,7);
+  const isAdminDash=D.role==='admin';
+  const seusCliDash=!isAdminDash&&D.profId?new Set(
     (D.inscricoes_grupo||[]).filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g&&g.professor_id===D.profId;}).map(i=>i.cliente_id)
   ):null;
-  const pp=D.pagamentos.filter(p=>{
+  const pp=diaAtual>=8?D.pagamentos.filter(p=>{
     if(p.estado==='pago'||p.estado==='isento') return false;
     if(seusCliDash&&!seusCliDash.has(p.cliente_id)) return false;
-    // Só mostrar do mês actual
-    const d=p.data_pag||p.created_at||'';
-    return d.startsWith(mesAtualStr);
-  }).slice(0,5);
+    const d=p.data_pag||'';
+    return d.startsWith(mesAtualPag);
+  }).slice(0,5):[];
   document.getElementById('d-pag').innerHTML=pp.length?pp.map(p=>{
     const c=D.clientes.find(x=>x.id===p.cliente_id);
     return`<div class="pagrow"><div class="avs">${ini(c?.nome||'?')}</div><div class="pagnome">${c?.nome||'—'} <span style="color:var(--t3);font-size:11px">· ${p.descricao||p.tipo||'—'}</span></div><div class="pagval">${fmt(p.valor)} €</div>${bdgE(p.estado)}</div>`;
-  }).join(''):'<div class="empty"><b>Sem pendentes</b></div>';
+  }).join(''):diaAtual<8?'<div class="empty"><b>Pagamentos só devidos a partir do dia 8</b></div>':'<div class="empty"><b>Sem pendentes</b></div>';
 
   // Inscrições
   const pi=D.inscricoes.filter(i=>i.estado==='Pendente').slice(0,3);
@@ -1358,30 +1257,18 @@ async function carregarTurmasCliente(cliId){
   const linhas=(inscs||[]).map(i=>{
     const g=D.grupos.find(x=>x.id===i.grupo_id);
     const estadoCor=i.estado==='ativa'?'var(--green)':i.estado==='pausada'?'var(--amber)':'var(--t3)';
-    const diasGrupo=(g?.dias_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
-    const diasSel=(i.dia_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
-    const freqAtual=i.tipo_aula&&i.tipo_aula.includes('1x')?'1x':'2x';
-    return`<div style="padding:10px 0;border-bottom:1px solid var(--bd)">
-      <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap">
-        <div style="flex:1;min-width:140px">
-          <div style="font-size:13px;font-weight:600;margin-bottom:6px">${g?.nome||'—'} ${g?.hora||''}</div>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            ${diasGrupo.map(d=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;font-weight:400;background:${diasSel.includes(d)?'var(--pbg)':'var(--s2)'};padding:3px 8px;border-radius:99px;border:1px solid ${diasSel.includes(d)?'var(--P)':'var(--bd)'}">
-              <input type="checkbox" class="dia-insc-chk" data-insc="${i.id}" data-cid="${cliId}" value="${d}" ${diasSel.includes(d)?'checked':''} onchange="alterarDiasInsc('${i.id}','${cliId}',this)" style="accent-color:var(--P)">
-              ${d}</label>`).join('')}
-            <select class="fs" style="width:75px;font-size:11px;padding:3px 6px" onchange="alterarFreqInsc('${i.id}',this.value,'${cliId}')">
-              <option value="1x" ${freqAtual==='1x'?'selected':''}>1×/sem</option>
-              <option value="2x" ${freqAtual==='2x'?'selected':''}>2×/sem</option>
-            </select>
-          </div>
-        </div>
-        <select class="fs" style="width:100px;font-size:11px;padding:4px 6px" onchange="alterarEstadoInsc('${i.id}',this.value,'${cliId}')">
-          <option value="ativa" ${i.estado==='ativa'?'selected':''}>✓ Ativa</option>
-          <option value="pausada" ${i.estado==='pausada'?'selected':''}>⏸ Pausada</option>
-          <option value="desistiu" ${i.estado==='desistiu'?'selected':''}>✗ Desistiu</option>
-        </select>
-        <button class="btn btns btnd" style="padding:4px 8px;font-size:11px" onclick="eliminarInscricaoGrupo('${i.id}','${cliId}')">🗑️</button>
+    return`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">
+      <div style="flex:1;min-width:140px">
+        <div style="font-size:13px;font-weight:600">${g?.nome||'—'} ${g?.hora||''}</div>
+        <div style="font-size:11px;color:var(--t3)">${i.dia_semana||''}</div>
       </div>
+      <span style="font-size:11px;font-weight:600;color:${estadoCor}">${i.estado}</span>
+      <select class="fs" style="width:100px;font-size:11px;padding:4px 6px" onchange="alterarEstadoInsc('${i.id}',this.value,'${cliId}')">
+        <option value="ativa" ${i.estado==='ativa'?'selected':''}>✓ Ativa</option>
+        <option value="pausada" ${i.estado==='pausada'?'selected':''}>⏸ Pausada</option>
+        <option value="desistiu" ${i.estado==='desistiu'?'selected':''}>✗ Desistiu</option>
+      </select>
+      <button class="btn btns btnd" style="padding:4px 8px;font-size:11px" onclick="eliminarInscricaoGrupo('${i.id}','${cliId}')">🗑️</button>
     </div>`;
   }).join('');
 
@@ -1415,22 +1302,6 @@ async function adicionarTurmaCliente(cliId){
   toast('Turma adicionada!','ok');
   carregarTurmasCliente(cliId);
   await carregarGrupos();
-}
-
-async function alterarDiasInsc(inscId, cliId, chk){
-  // Recolher todos os dias seleccionados desta inscrição
-  const checks=document.querySelectorAll('.dia-insc-chk[data-insc="'+inscId+'"]');
-  const dias=Array.from(checks).filter(c=>c.checked).map(c=>c.value);
-  if(!dias.length){toast('Selecciona pelo menos um dia','err');chk.checked=true;return;}
-  await sb.from('inscricoes_grupo').update({dia_semana:dias.join(',')}).eq('id',inscId);
-  toast('Dias actualizados!','ok');
-  await carregarGrupos();
-}
-
-async function alterarFreqInsc(inscId, freq, cliId){
-  await sb.from('inscricoes_grupo').update({tipo_aula:freq+'/semana'}).eq('id',inscId);
-  toast('Frequência actualizada!','ok');
-  carregarTurmasCliente(cliId);
 }
 
 async function alterarEstadoInsc(inscId, estado, cliId){
@@ -1598,7 +1469,12 @@ async function guardarSessao(){
 async function eliminarSessao(id){if(!confirm('Eliminar sessão?'))return;await sb.from('sessoes').delete().eq('id',id);toast('Eliminada','ok');await carregarSessoes();}
 function renderSessoes(){
   const tb=document.getElementById('tb-ses');if(!tb)return;
-  tb.innerHTML=D.sessoes.length?D.sessoes.map(s=>{
+  const isAdminS=D.role==='admin';
+  const sesVisiveis=isAdminS?D.sessoes:D.sessoes.filter(s=>{
+    const g=D.grupos.find(x=>x.id===s.grupo_id);
+    return s.professor_id===D.profId||(g&&g.professor_id===D.profId);
+  });
+  tb.innerHTML=sesVisiveis.length?sesVisiveis.map(s=>{
     const g=D.grupos.find(x=>x.id===s.grupo_id);
     const pr=D.professores.find(x=>x.id===s.professor_id);
     return`<tr>
