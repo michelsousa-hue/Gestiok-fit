@@ -1278,7 +1278,21 @@ function renderDash(){
     if(_seusC&&!_seusC.has(p.cliente_id)) return false;
     return (p.data_pag||'').startsWith(_mes);
   }).length:0;
-  document.getElementById('m-esp').textContent=D.espera.length;
+  // Contar espera: tabela espera + inscricoes com estado Espera
+  const isAdminE=D.role==='admin';
+  const inscEspera=D.inscricoes.filter(function(i){
+    if(i.estado!=='Espera') return false;
+    if(!isAdminE&&D.profId){
+      const g=D.grupos.find(function(x){return x.id===i.grupo_id;});
+      return g&&g.professor_id===D.profId;
+    }
+    return true;
+  });
+  const esperaManual=isAdminE?D.espera:D.espera.filter(function(e){
+    const g=D.grupos.find(function(x){return x.id===e.grupo_id;});
+    return g&&g.professor_id===D.profId;
+  });
+  document.getElementById('m-esp').textContent=inscEspera.length+esperaManual.length;
 
   // Próximas sessões
   const hoje=new Date().toISOString().slice(0,10);
@@ -1318,7 +1332,20 @@ function renderDash(){
   document.getElementById('d-insc').innerHTML=pi.length?pi.map(i=>`<div class="pagrow"><div class="avs">${ini(i.nome)}</div><div class="pagnome">${i.nome} <span style="color:var(--t3);font-size:11px">· ${i.tipo_aula||'—'}</span></div><div style="display:flex;gap:6px"><button class="btn btns" style="background:var(--gbg);color:var(--green);border-color:var(--gbg);font-size:11px" onclick="aprovarInsc('${i.id}')">Aprovar</button><button class="btn btns btnd" style="font-size:11px" onclick="rejeitarInsc('${i.id}')">Rejeitar</button></div></div>`).join(''):'<div class="empty"><b>Sem inscrições pendentes</b></div>';
 
   // Espera
-  document.getElementById('d-esp').innerHTML=D.espera.length?D.espera.slice(0,4).map((e,i)=>`<div class="pagrow"><div class="epos">${i+1}</div><div class="pagnome">${e.nome} <span style="color:var(--t3);font-size:11px">· ${e.telemovel||'—'} · ${D.grupos.find(g=>g.id===e.grupo_id)?.nome||e.tipo_aula||'Qualquer'}</span></div></div>`).join(''):'<div class="empty"><b>Lista vazia</b></div>';
+  // Combinar lista de espera manual + inscrições online em espera
+  const todasEspera=[
+    ...inscEspera.map(function(i){
+      const g=D.grupos.find(function(x){return x.id===i.grupo_id;});
+      return{nome:i.nome,telemovel:i.telemovel||'—',grupo:g?g.nome+' '+(g.hora||''):'—',tipo:'online'};
+    }),
+    ...esperaManual.map(function(e){
+      const g=D.grupos.find(function(x){return x.id===e.grupo_id;});
+      return{nome:e.nome,telemovel:e.telemovel||'—',grupo:g?g.nome:e.tipo_aula||'Qualquer',tipo:'manual'};
+    })
+  ];
+  document.getElementById('d-esp').innerHTML=todasEspera.length?todasEspera.slice(0,5).map(function(e,i){
+    return'<div class="pagrow"><div class="epos">'+(i+1)+'</div><div class="pagnome">'+e.nome+' <span style="color:var(--t3);font-size:11px">· '+e.telemovel+' · '+e.grupo+'</span></div>'+(e.tipo==='online'?'<span style="font-size:10px;background:#E6F1FB;color:#185FA5;padding:2px 6px;border-radius:99px">online</span>':'')+'</div>';
+  }).join(''):'<div class="empty"><b>Lista vazia</b></div>';
 }
 
 // ════════════════════════════════════════════════════════
