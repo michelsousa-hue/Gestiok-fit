@@ -1391,7 +1391,8 @@ async function carregarTurmasCliente(cliId){
   const {data:inscs}=await sb.from('inscricoes_grupo').select('*').eq('cliente_id',cliId);
   // Turmas já inscritas
   const inscIds=new Set((inscs||[]).map(i=>i.grupo_id));
-  const turmasDisponiveis=D.grupos.filter(g=>g.ativo&&!inscIds.has(g.id));
+  // Mostrar todas as turmas activas — permite inscrever em turma com dias diferentes
+  const turmasDisponiveis=D.grupos.filter(g=>g.ativo);
 
   const linhas=(inscs||[]).map(i=>{
     const g=D.grupos.find(x=>x.id===i.grupo_id);
