@@ -1413,16 +1413,44 @@ async function carregarTurmasCliente(cliId){
   }).join('');
 
   // Botão para adicionar nova turma
-  const addTurma=turmasDisponiveis.length>0?`
-    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <select class="fs" id="add-turma-sel-${cliId}" style="flex:1;font-size:12px">
-        <option value="">— Escolher turma —</option>
-        ${turmasDisponiveis.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('')}
-      </select>
+  const addTurma=`<div style="margin-top:12px;border-top:1px solid var(--bd);padding-top:12px">
+    <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px">Adicionar turma</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:1;min-width:140px">
+        <select class="fs" id="add-turma-sel-${cliId}" style="width:100%;font-size:12px" onchange="mostrarDiasAdd('${cliId}')">
+          <option value="">— Escolher turma —</option>
+          ${turmasDisponiveis.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''}</option>`).join('')}
+        </select>
+      </div>
+      <div id="add-dias-wrap-${cliId}" style="display:none;min-width:120px">
+        <div style="font-size:11px;color:var(--t3);margin-bottom:3px">Escolhe o dia</div>
+        <div id="add-dias-${cliId}" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
       <button class="btn btnp" style="font-size:12px;padding:6px 12px" onclick="adicionarTurmaCliente('${cliId}')">+ Adicionar</button>
-    </div>`:'';
+    </div>
+  </div>`;
 
   lista.innerHTML=(inscs?.length?linhas:'<div style="font-size:13px;color:var(--t3);padding:8px 0">Sem turmas inscritas</div>')+addTurma;
+}
+
+function mostrarDiasAdd(cliId){
+  const sel=document.getElementById('add-turma-sel-'+cliId);
+  const grupoId=sel?.value;
+  const wrap=document.getElementById('add-dias-wrap-'+cliId);
+  const diasDiv=document.getElementById('add-dias-'+cliId);
+  if(!grupoId||!wrap||!diasDiv){if(wrap)wrap.style.display='none';return;}
+  const g=D.grupos.find(x=>x.id===grupoId);
+  const dias=(g?.dias_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
+  if(dias.length<=1){
+    // Só 1 dia — seleccionar automaticamente
+    diasDiv.innerHTML='<span style="font-size:12px;font-weight:600;color:var(--P)">'+( dias[0]||'—')+'</span>';
+    wrap.style.display='block';
+  } else {
+    diasDiv.innerHTML=dias.map(d=>`<label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;background:var(--s2);padding:3px 8px;border-radius:99px;border:1px solid var(--bd)">
+      <input type="checkbox" name="add-dia-${cliId}" value="${d}" style="accent-color:var(--P)"> ${d}
+    </label>`).join('');
+    wrap.style.display='block';
+  }
 }
 
 async function adicionarTurmaCliente(cliId){
@@ -1430,13 +1458,17 @@ async function adicionarTurmaCliente(cliId){
   const grupoId=sel?.value;
   if(!grupoId){toast('Escolhe uma turma','err');return;}
   const g=D.grupos.find(x=>x.id===grupoId);
-  const dias=(g?.dias_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
+  const diasGrupo=(g?.dias_semana||'').split(',').map(d=>d.trim()).filter(Boolean);
+  // Usar dias seleccionados pelo utilizador
+  const chks=document.querySelectorAll('input[name="add-dia-'+cliId+'"]:checked');
+  const diasSel=chks.length>0?Array.from(chks).map(c=>c.value):diasGrupo;
+  if(diasGrupo.length>1&&chks.length===0){toast('Por favor escolhe o(s) dia(s)','err');return;}
   await sb.from('inscricoes_grupo').insert({
     id:uid(),
     cliente_id:cliId,
     grupo_id:grupoId,
     estado:'ativa',
-    dia_semana:dias.join(','),
+    dia_semana:diasSel.join(','),
     data_inicio:new Date().toISOString().slice(0,10)
   });
   toast('Turma adicionada!','ok');
