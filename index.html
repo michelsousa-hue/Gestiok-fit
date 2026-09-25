@@ -389,6 +389,19 @@ tr:hover td{background:var(--s2)}
       <div id="p-clientes" class="page">
         <div class="card">
           <div class="ch"><div class="ct">Clientes</div><button class="btn btnp btns" onclick="abrCliente()">+ Novo cliente</button></div>
+          <div style="padding:0 0 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select class="fs" id="fil-prof-cli" style="width:200px;font-size:13px" onchange="renderClientes()">
+              <option value="">Todos os professores</option>
+            </select>
+            <select class="fs" id="fil-turma-cli" style="width:200px;font-size:13px" onchange="renderClientes()">
+              <option value="">Todas as turmas</option>
+            </select>
+            <select class="fs" id="fil-estado-cli" style="width:140px;font-size:13px" onchange="renderClientes()">
+              <option value="">Todos os estados</option>
+              <option value="ativo">Ativos</option>
+              <option value="inativo">Inativos</option>
+            </select>
+          </div>
           <div class="tw"><table><thead><tr><th>Nome</th><th>Contacto</th><th>Nível</th><th>Estado</th><th>Ações</th></tr></thead><tbody id="tb-cli"></tbody></table></div>
         </div>
       </div>
@@ -1506,12 +1519,40 @@ function renderClientes(){
   const tb=document.getElementById('tb-cli');if(!tb)return;
   const nivelBdg={iniciante:'bgr',intermedio:'ba',avancado:'bp'};
   const isAdmin=D.role==='admin';
+  // Popular dropdown de professores
+  const filProfSel=document.getElementById('fil-prof-cli');
+  if(filProfSel&&isAdmin&&filProfSel.options.length<=1){
+    filProfSel.innerHTML='<option value="">Todos os professores</option>'+
+      D.professores.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  }
+  if(filProfSel) filProfSel.style.display=isAdmin?'':'none';
+  const filProfId=filProfSel?.value||'';
+  const filEstado=document.getElementById('fil-estado-cli')?.value||'';
+  // Popular dropdown de turmas
+  const filTurmaSel=document.getElementById('fil-turma-cli');
+  if(filTurmaSel&&filTurmaSel.options.length<=1){
+    const turmasVis=isAdmin?D.grupos:D.grupos.filter(g=>g.professor_id===D.profId);
+    filTurmaSel.innerHTML='<option value="">Todas as turmas</option>'+
+      turmasVis.map(g=>`<option value="${g.id}">${g.nome} ${g.hora||''} ${g.dias_semana||''}</option>`).join('');
+  }
+  const filTurmaId=filTurmaSel?.value||'';
+  // Filtrar clientes
   const seusCliIds=!isAdmin&&D.profId?new Set(
     (D.inscricoes_grupo||[])
       .filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g?.professor_id===D.profId;})
       .map(i=>i.cliente_id)
+  ):filProfId?new Set(
+    (D.inscricoes_grupo||[])
+      .filter(i=>{const g=D.grupos.find(x=>x.id===i.grupo_id);return g?.professor_id===filProfId;})
+      .map(i=>i.cliente_id)
   ):null;
-  const clientesVisiveis=seusCliIds?D.clientes.filter(c=>seusCliIds.has(c.id)):D.clientes;
+  let clientesVisiveis=seusCliIds?D.clientes.filter(c=>seusCliIds.has(c.id)):D.clientes;
+  // Filtro por turma
+  if(filTurmaId){
+    const clisTurma=new Set((D.inscricoes_grupo||[]).filter(i=>i.grupo_id===filTurmaId).map(i=>i.cliente_id));
+    clientesVisiveis=clientesVisiveis.filter(c=>clisTurma.has(c.id));
+  }
+  if(filEstado) clientesVisiveis=clientesVisiveis.filter(c=>c.estado===filEstado);
   tb.innerHTML=clientesVisiveis.length?clientesVisiveis.map(c=>`<tr>
     <td><div class="tdn"><div class="av">${ini(c.nome)}</div>${c.nome}</div></td>
     <td style="font-size:12px;color:var(--t2)">${c.email||'—'}<br>${c.telemovel||''}</td>
