@@ -381,7 +381,7 @@ tr:hover td{background:var(--s2)}
         </div>
         <div class="g2">
           <div class="card"><div class="ch"><div class="ct">Inscrições para aprovar</div><button class="btn btns" onclick="goP('inscricoes',document.getElementById('ni-inscricoes'))">Ver todas</button></div><div id="d-insc"><div class="loader">A carregar...</div></div></div>
-          <div class="card"><div class="ch"><div class="ct">Lista de espera</div><button class="btn btns" onclick="goP('espera',document.getElementById('ni-espera'))">Ver toda</button></div><div id="d-esp"><div class="loader">A carregar...</div></div></div>
+          <div class="card"><div class="ch"><div class="ct">Lista de espera</div><button class="btn btns" onclick="filtroInsc('Espera');goP('inscricoes',document.getElementById('ni-inscricoes'))">Ver todas</button></div><div id="d-esp"><div class="loader">A carregar...</div></div></div>
         </div>
       </div>
 
@@ -1860,7 +1860,8 @@ function renderInscricoes(){
     const g=D.grupos.find(x=>x.id===i.grupo_id);
     return g?.professor_id===D.profId;
   });
-  tb.innerHTML=inscVisiveis.length?inscVisiveis.map(i=>`<tr>
+  // Destacar linhas em espera com fundo amarelo
+  tb.innerHTML=inscVisiveis.length?inscVisiveis.map(i=>`<tr style="${i.estado==='Espera'?'background:var(--abg)':i.estado==='Pendente'?'background:var(--pbg)':''}">
     <td><div class="tdn"><div class="avs">${ini(i.nome)}</div>${i.nome}</div></td>
     <td style="font-size:12px">${i.email||'—'}<br>${i.telemovel||''}</td>
     <td style="font-size:12px">${i.tipo_aula||'—'}</td>
