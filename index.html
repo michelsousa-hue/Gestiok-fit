@@ -454,6 +454,12 @@ tr:hover td{background:var(--s2)}
       <div id="p-inscricoes" class="page">
         <div class="card">
           <div class="ch"><div class="ct">Inscrições online</div></div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <button class="btn btns" id="fi-todas" onclick="filtroInsc('')" style="font-size:12px;background:var(--pbg);color:var(--P);border-color:var(--P)">Todas</button>
+            <button class="btn btns" id="fi-pendente" onclick="filtroInsc('Pendente')" style="font-size:12px">⏳ Pendentes</button>
+            <button class="btn btns" id="fi-espera" onclick="filtroInsc('Espera')" style="font-size:12px">🟡 Em espera</button>
+            <button class="btn btns" id="fi-aprovada" onclick="filtroInsc('Aprovada')" style="font-size:12px">✅ Aprovadas</button>
+          </div>
           <div class="tw"><table><thead><tr><th>Nome</th><th>Contacto</th><th>Tipo pretendido</th><th>Data</th><th>Estado</th><th>Ações</th></tr></thead><tbody id="tb-insc"></tbody></table></div>
         </div>
       </div>
@@ -1830,10 +1836,26 @@ async function moverEsperaInsc(id){
   toast('Movido para lista de espera','ok');
   await Promise.all([carregarInscricoes(),carregarEspera()]); atualizarBadges(); renderDash();
 }
+let _filtroInsc='';
+function filtroInsc(estado){
+  _filtroInsc=estado;
+  // Update button styles
+  ['todas','pendente','espera','aprovada'].forEach(f=>{
+    const btn=document.getElementById('fi-'+f);
+    if(!btn) return;
+    const active=(f===''||f==='todas')?estado==='':(f===estado.toLowerCase());
+    btn.style.background=active?'var(--pbg)':'';
+    btn.style.color=active?'var(--P)':'';
+    btn.style.borderColor=active?'var(--P)':'';
+  });
+  renderInscricoes();
+}
+
 function renderInscricoes(){
   const tb=document.getElementById('tb-insc');if(!tb)return;
   const isAdmin=D.role==='admin';
-  const inscVisiveis=isAdmin?D.inscricoes:D.inscricoes.filter(i=>{
+  let inscBase=_filtroInsc?D.inscricoes.filter(i=>i.estado===_filtroInsc):D.inscricoes;
+  const inscVisiveis=isAdmin?inscBase:inscBase.filter(i=>{
     if(!i.grupo_id)return false;
     const g=D.grupos.find(x=>x.id===i.grupo_id);
     return g?.professor_id===D.profId;
@@ -1848,6 +1870,10 @@ function renderInscricoes(){
       ${i.estado==='Pendente'?`
         <button class="btn btns" style="background:var(--gbg);color:var(--green);border-color:var(--gbg);font-size:11px" onclick="aprovarInsc('${i.id}')">Aprovar</button>
         <button class="btn btns" style="background:var(--abg);color:var(--amber);border-color:var(--abg);font-size:11px" onclick="moverEsperaInsc('${i.id}')">Espera</button>
+        <button class="btn btns btnd" style="font-size:11px" onclick="rejeitarInsc('${i.id}')">Rejeitar</button>
+      `:''}
+      ${i.estado==='Espera'?`
+        <button class="btn btns" style="background:var(--gbg);color:var(--green);border-color:var(--gbg);font-size:11px" onclick="aprovarInsc('${i.id}')">✓ Aprovar</button>
         <button class="btn btns btnd" style="font-size:11px" onclick="rejeitarInsc('${i.id}')">Rejeitar</button>
       `:''}
     </div></td>
